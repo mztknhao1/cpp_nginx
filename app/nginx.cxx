@@ -16,8 +16,15 @@ int main(int argc, char *const *argv){
     }
 
     //获取配置文件信息的用法
-    int port = p_config->GetIntDefault("ListenPort",0);  //0是缺省值
-    printf("ListenPort = %d", port);
+    // int port = p_config->GetIntDefault("ListenPort",0);  //0是缺省值
+    // const char* dbinfo = p_config->GetString("DBInfo");
+    // printf("ListenPort = %d\n", port);
+    // printf("DBInfo = %s\n", dbinfo);
+
+    
+
+
+
 
     return 0;
 }
