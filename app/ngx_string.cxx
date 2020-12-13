@@ -1,6 +1,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include "ngx_string.h"
 
 //一些和字符串处理相关的函数，准备放这里
 
