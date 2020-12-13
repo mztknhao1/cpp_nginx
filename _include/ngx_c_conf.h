@@ -1,3 +1,4 @@
+
 #ifndef __NGX_CONF_H__
 #define __NGX_CONF_H__
 
@@ -21,7 +22,7 @@ public:
         if(m_instance == NULL){
             //锁
             if(m_instance == NULL){
-                m_instance == new CConfig();
+                m_instance = new CConfig();
                 static CGarhuishou cl;  //析构函数中会释放m_instance
             }
             //放锁
@@ -45,7 +46,7 @@ public:
     int GetIntDefault(const char *p_itemname, const int def);
 
 public:
-    std::vector<LPCConfItem> m_ConfigItemList;  //存储配置信息的列表
+    std::vector<CConfItem*> m_ConfigItemList;  //存储配置信息的列表
 };
 
 

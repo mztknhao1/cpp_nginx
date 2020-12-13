@@ -2,10 +2,10 @@
 
 ifeq ($(DEBUG), true)
 # -g是生成调试信息。GNU调试起可以利用该信息
-CC = g++ -g
+CC = g++ -g -std=c++11
 VERSION = debug
 else
-CC = g++
+CC = g++ -std=c++11
 VERSION = release
 endif
 
