@@ -34,6 +34,21 @@ void ngx_log_stderr(int err, const char *fmt, ...){
     p = ngx_cpymem(errstr, "nginx: ", 7);   //p指向"nginx: "之后
 
     va_start(args, fmt);                    //使args指向起始的参数
+    p = ngx_vslprintf(p, last, fmt, args);
+    va_end(args);
 
+    // 如果错误代码不是0，表示有错误发生
+    if(err){
+        
+    }
+
+    //若位置不够， 那换行也要应插入到末尾，哪怕覆盖到其他内容
+    if(p >= (last - 1)){
+        p = (last-1) - 1;
+    }
+    *p++ = '\n';
     
+    write(STDERR_FILENO, errstr, p-errstr);  //往标准错误上写
+    
+    return;
 }

@@ -5,7 +5,11 @@
 
 //简单功能函数----------------------------
 #define ngx_cpymem(dst, src, n) (((u_char *) memcpy(dst, src, n)) + (n))
+#define ngx_min(val1, val2)  ((val1 > val2) ? (val2) : (val1))              //比较大小，返回小值，注意，参数都用()包着
 
+//数字相关--------------------
+#define NGX_MAX_UINT32_VALUE   (uint32_t) 0xffffffff              //最大的32位无符号数：十进制是‭4294967295‬
+#define NGX_INT64_LEN          (sizeof("-9223372036854775808") - 1)     
 
 //日志相关---------------------------------
 //日志等级共9个，级别从高到低，数字最小的级别最高

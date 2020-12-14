@@ -40,6 +40,8 @@ int main(int argc, char *const *argv){
     //     sleep(1);
     //     printf("休息1s\n");
     // }
+
+    ngx_log_stderr(0,"InValid Info: %d", 10);
     
 
 
