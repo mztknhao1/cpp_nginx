@@ -7,7 +7,7 @@
 #include "ngx_func.h"
 #include "ngx_signal.h"
 #include "ngx_c_conf.h"
-#include "ngx_setproctitle.h"
+#include "ngx_func.h"
 
 // 和设置标题有关的全局量
 char **g_os_argv;    //原始命令参数数组，在main中赋值
@@ -28,10 +28,10 @@ int main(int argc, char *const *argv){
     }
 
     //获取配置文件信息的用法
-    // int port = p_config->GetIntDefault("ListenPort",0);  //0是缺省值
-    // const char* dbinfo = p_config->GetString("DBInfo");
-    // printf("ListenPort = %d\n", port);
-    // printf("DBInfo = %s\n", dbinfo)
+    int port = p_config->GetIntDefault("ListenPort",0);  //0是缺省值
+    const char* dbinfo = p_config->GetString("DBInfo");
+    printf("ListenPort = %d\n", port);
+    printf("DBInfo = %s\n", dbinfo);
 
     // 设置新标题，这之前应该保证所有命令行参数都不用了
     // ngx_setproctitle("nginx: master process");

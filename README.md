@@ -15,6 +15,14 @@
 
     (b.4) ngx_conf.c: 普通源码文件，跟主文件关系密切
 
+    (b.5) ngx_setproctitle.c: 设置进程标题
+
+    (b.6) ngx_string: 字符串处理相关函数,头文件在"ngx_func.h"中
+
+    (b.7) ngx_printf.c: 和打印格式相关的函数,头文件在"ngx_func.h"中
+
+    (b.8) ngx_log.c: 和日志相关的函数
+
 (c) misc目录：专门存放各种杂合性的不好归类的1到多个.c文件
 
 (d) net目录：专门存放网络处理相关的代码

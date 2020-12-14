@@ -1,7 +1,7 @@
 /******************************************************
 修改进程标题，master+多个worker，不改标题不好调试，不醒目
 *******************************************************/
-#include "ngx_setproctitle.h"
+#include "ngx_func.h"
 
 #include <stdio.h>
 #include <stdlib.h>

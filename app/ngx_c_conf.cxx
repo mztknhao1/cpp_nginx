@@ -5,7 +5,7 @@
 
 #include "ngx_func.h"
 #include "ngx_c_conf.h"
-#include "ngx_string.h"
+#include "ngx_func.h"
 
 //静态成员赋值
 CConfig *CConfig::m_instance = NULL;
