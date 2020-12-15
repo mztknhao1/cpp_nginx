@@ -2,3 +2,4 @@ nginx
 app/link_obj/nginx.o
 *.o
 *.d
+logs/error.log

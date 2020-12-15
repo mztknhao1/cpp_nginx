@@ -7,10 +7,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include "ngx_global.h"
 
-extern int g_environlen;
-extern char* gp_envmem;
-extern char** g_os_argv;
 
 //设置可执行程序标题相关函数，分配内存，并把环境变量搬家
 void ngx_init_setproctitle(){
