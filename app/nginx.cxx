@@ -35,7 +35,10 @@ int main(int argc, char *const *argv){
 
     //一些初始化函数
     ngx_log_init();        //日志初始化（创建/打开日志文件）
-
+    if(ngx_init_signals()!=0){
+        exitcode = 1;
+        goto lblexit;
+    }
 
     //设置新标题，这之前应该保证所有命令行参数都不用了
     ngx_init_setproctitle();
