@@ -17,10 +17,14 @@ typedef struct{
 
 
 extern int g_environlen;
+extern size_t g_envneddmem;
+extern size_t g_argvneedmem;
+extern int    g_os_argc;
 extern char* gp_envmem;
 extern char** g_os_argv;
 
 extern pid_t ngx_pid;
+extern pid_t ngx_parent;
 extern ngx_log_t ngx_log;
 
 

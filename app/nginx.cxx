@@ -12,18 +12,36 @@
 static void freeresource();
 
 // 和设置标题有关的全局量
+size_t  g_argvneedmem=0;    //保存下这些argv参数所需要的内存大小
+size_t  g_envneddmem=0;     //保存下环境变量需要的大小
+int     g_os_argc;          //参数个数
 char **g_os_argv;    //原始命令参数数组，在main中赋值
 char *gp_envmem = NULL;  //指向自己分配的env环境变量的内存
 int g_environlen = 0;   //环境变量所占内存大小
 
+
+
 // 和进程有关的全局量
 pid_t ngx_pid;          //当前进程的pid
+pid_t ngx_parent;       //父进程的pid
 
 int main(int argc, char *const *argv){
     int exitcode = 0;
+    int i = 0;
 
-    ngx_pid = getpid();
+    ngx_pid = getpid();             //取得进程的pid
+    ngx_parent = getppid();         //取得父进程的id
     g_os_argv = (char **) argv;
+
+    //统计argv所占内存
+    g_argvneedmem = 0;
+    for(i=0;i<argc;i++){
+        g_argvneedmem += strlen(environ[i]) + 1;
+    }
+
+    g_os_argc = argc;               //保存参数个数
+    g_os_argv = (char **) argv;     //保存参数指针
+
 
     // 初始化，如果初始化失败就直接退出
     CConfig *p_config = CConfig::GetInstance();
@@ -42,7 +60,11 @@ int main(int argc, char *const *argv){
 
     //设置新标题，这之前应该保证所有命令行参数都不用了
     ngx_init_setproctitle();
-    ngx_setproctitle("nginx: master process");
+    
+    //不管是父进程还是子进程，都在这个函数中循环往复
+    ngx_master_process_cycle();
+
+
 
     // for(;;){
     //     sleep(1);
