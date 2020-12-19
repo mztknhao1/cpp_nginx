@@ -59,7 +59,7 @@ int main(int argc, char *const *argv){
     }
 
     //设置新标题，这之前应该保证所有命令行参数都不用了
-    ngx_init_setproctitle();
+    ngx_init_setproctitle();  //把环境变量搬家
     
     //不管是父进程还是子进程，都在这个函数中循环往复
     ngx_master_process_cycle();

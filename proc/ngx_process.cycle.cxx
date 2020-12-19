@@ -54,19 +54,29 @@ void ngx_master_process_cycle(){
         for(i=0;i<g_os_argc;++i){
             strcat(title,g_os_argv[i]);
         }
-        ngx_setproctitle(title);        
+        ngx_setproctitle(title);        // 设置主进程的标题
     }
 
     //从配置文件中读取要创建的worker进程数量
     CConfig *p_config = CConfig::GetInstance();
-    int workprocess = p_config->GetIntDefault("WorkerProcess", 1);
+    int workprocess = p_config->GetIntDefault("WorkerProcesses", 1);
     ngx_start_worker_processes(workprocess);
 
     //创建子进程后，父进程执行的流程会返回到这里，子进程不会进来
-    sigemptyset(&set);
+
+    // 屏蔽字为空，表示不屏蔽任何信号
+    sigemptyset(&set);  
 
     for(;;){
-        ngx_log_error_core(0,0,"----这是父进程----，pid为%P",ngx_pid);
+        // ngx_log_error_core(0,0,"----这是父进程----，pid为%P",ngx_pid);
+        
+        // sigsuspend阻塞在这里，等待一个信号，此时进程被挂起，不占用cpu事件，只有收到信号才会被唤醒（返回）
+        // 把一些列操作合在一起（原子操作）
+        // 可以取代sigprocmask , 避免被打断
+        // sigsuspend(&set);
+        // printf("执行到这里来了\n");
+        //TODO 以后扩充代码
+
     }
     return;
 }
@@ -75,6 +85,7 @@ void ngx_master_process_cycle(){
 // 创建给定数量的子进程，可能要增加参数扩展功能TODO
 static void ngx_start_worker_processes(int threadnums){
     int i;
+    // master进程走这个for循环，创建threadnums个子进程
     for(i=0;i<threadnums;++i){
         ngx_spawn_process(i, "worker process");
     }
@@ -86,11 +97,12 @@ static void ngx_start_worker_processes(int threadnums){
 //pprocname: 子进程名字"worker process"
 static int ngx_spawn_process(int inum, const char *pprocname){
     pid_t pid;
-    pid = fork();
+    pid = fork();       //分叉，从原来的master进程分成两个分支（原有的master以及新fork()出来的worker)进程
     switch (pid){
         case -1:
             ngx_log_error_core(NGX_LOG_ALERT, errno, "ngx_spawn_process()for()失败!");
             return -1;
+
         case 0:  //子进程分支
             ngx_parent = ngx_pid;       //现在是子进程，父进程变为原来的进程pid
             ngx_pid = getpid();         //重新获取pid
@@ -107,13 +119,14 @@ static int ngx_spawn_process(int inum, const char *pprocname){
 }
 
 // worker子进程在这里循环，（无限循环【处理网络事件和定时器事件以对外提供web服务】）
+// 子进程分支才会走到这里
 // inum：进程编号
 static void ngx_worker_process_cycle(int inum, const char *pprocname){
     ngx_worker_process_init(inum);  //重新为子进程设置进程名，不与父进程重复
     ngx_setproctitle(pprocname);
 
-    for(;;){
-        ngx_log_error_core(0,0,"good--这是子进程，编号为%d,pid为%P！",inum,ngx_pid);
+    for(;;){                        //子进程在这里循环
+        // ngx_log_error_core(0,0,"good--这是子进程，编号为%d,pid为%P！",inum,ngx_pid);
     }
 }
 
@@ -121,7 +134,7 @@ static void ngx_worker_process_cycle(int inum, const char *pprocname){
 // 子进程创建时调用本函数进行一些初始化工作
 static void ngx_worker_process_init(int inum){
     sigset_t    set;        
-    sigemptyset(&set);
+    sigemptyset(&set);          // 子进程先把信号集清空->不屏蔽任何信号，允许接收所有信号
 
     if(sigprocmask(SIG_SETMASK, &set, NULL) == -1){
         ngx_log_error_core(NGX_LOG_ALERT,errno,"ngx_worker_process_init()中sigprocmask()失败!");

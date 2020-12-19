@@ -27,5 +27,4 @@ u_char *ngx_vslprintf(u_char *buf, u_char *last, const char *fmt, va_list args);
 //和信号/主流程相关相关
 int    ngx_init_signals();
 void   ngx_master_process_cycle();
-
 #endif

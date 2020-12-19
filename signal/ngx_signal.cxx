@@ -27,7 +27,7 @@ static void ngx_signal_handler(int signo, siginfo_t *siginfo, void *ucontext);
 // TODO:可以增加更多的信号处理函数
 ngx_signal_t signals[] = {
     // signo          signame             handler
-    {SIGHUP,          "SIGHUP",           ngx_signal_handler},    //中断断开信号
+    {SIGHUP,          "SIGHUP",           ngx_signal_handler},    //中端断开信号 SIGHUP
     {SIGINT,          "SIGINT",           ngx_signal_handler},
     {SIGTERM,         "SIGTERM",          ngx_signal_handler},
     {SIGCHLD,         "SIGCHLD",          ngx_signal_handler},    //中断断开信号
