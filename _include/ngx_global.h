@@ -27,5 +27,8 @@ extern pid_t ngx_pid;
 extern pid_t ngx_parent;
 extern ngx_log_t ngx_log;
 
+// 守护进程标记
+extern int   g_daemonized;
+
 
 #endif

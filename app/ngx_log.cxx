@@ -68,6 +68,11 @@ void ngx_log_stderr(int err, const char *fmt, ...){
     
     write(STDERR_FILENO, errstr, p-errstr);  //往标准错误上写
     
+    if(ngx_log.fd > STDERR_FILENO){
+        //如果是一个有效的日志文件，本条件成立，往日志文件写信息
+        ngx_log_error_core(NGX_LOG_STDERR, err, (const char *)errstr);
+    }
+
     return;
 }
 
