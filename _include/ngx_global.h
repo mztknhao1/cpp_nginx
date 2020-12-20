@@ -29,6 +29,8 @@ extern ngx_log_t ngx_log;
 
 // 守护进程标记
 extern int   g_daemonized;
+extern int 	 ngx_process;
+extern int   ngx_reap;
 
 
 #endif

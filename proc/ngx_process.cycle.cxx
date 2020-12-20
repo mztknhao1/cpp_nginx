@@ -55,6 +55,7 @@ void ngx_master_process_cycle(){
             strcat(title,g_os_argv[i]);
         }
         ngx_setproctitle(title);        // 设置主进程的标题
+        ngx_log_error_core(NGX_LOG_NOTICE, 0, "%s %P 启动并开始运行......!", title, ngx_pid);
     }
 
     //从配置文件中读取要创建的worker进程数量
@@ -122,8 +123,12 @@ static int ngx_spawn_process(int inum, const char *pprocname){
 // 子进程分支才会走到这里
 // inum：进程编号
 static void ngx_worker_process_cycle(int inum, const char *pprocname){
+    //设置一下进程类型
+    ngx_process = NGX_PROCESS_WORKER;
+
     ngx_worker_process_init(inum);  //重新为子进程设置进程名，不与父进程重复
     ngx_setproctitle(pprocname);
+    ngx_log_error_core(NGX_LOG_NOTICE, 0, "%s %P 启动并运行......!",pprocname, ngx_pid);
 
     for(;;){                        //子进程在这里循环
         // ngx_log_error_core(0,0,"good--这是子进程，编号为%d,pid为%P！",inum,ngx_pid);

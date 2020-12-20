@@ -2,12 +2,14 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 
 // 头文件路径，使用gcc -I参数指定
 #include "ngx_func.h"
 #include "ngx_signal.h"
 #include "ngx_c_conf.h"
 #include "ngx_func.h"
+#include "ngx_macro.h"
 
 static void freeresource();
 
@@ -24,6 +26,10 @@ pid_t ngx_pid;          //当前进程的pid
 pid_t ngx_parent;       //父进程的pid
 int   g_daemonized;     //是否启用守护进程
 
+int ngx_process;        //进程类型，比如master / worker
+sig_atomic_t   ngx_reap;   //标记子进程状态变化，一般是子进程发来SIGCHLD信号表示退出
+                            //sig_atomic_t  : 系统定义
+
 
 int main(int argc, char *const *argv){
     int exitcode = 0;
@@ -39,9 +45,12 @@ int main(int argc, char *const *argv){
         g_argvneedmem += strlen(environ[i]) + 1;
     }
 
+    // 初始化全局量
     g_os_argc = argc;               //保存参数个数
     g_os_argv = (char **) argv;     //保存参数指针
-
+    ngx_log.fd = -1;                //-1 表示日志文件尚未打开
+    ngx_process = NGX_PROCESS_MASTER;   
+    ngx_reap = 0;
 
     // 初始化，如果初始化失败就直接退出
     CConfig *p_config = CConfig::GetInstance();
