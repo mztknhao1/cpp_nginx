@@ -55,7 +55,6 @@ void ngx_master_process_cycle(){
             strcat(title,g_os_argv[i]);
         }
         ngx_setproctitle(title);        // 设置主进程的标题
-        ngx_log_error_core(NGX_LOG_NOTICE, 0, "%s %P 启动并开始运行......!", title, ngx_pid);
     }
 
     //从配置文件中读取要创建的worker进程数量
@@ -66,18 +65,10 @@ void ngx_master_process_cycle(){
     //创建子进程后，父进程执行的流程会返回到这里，子进程不会进来
 
     // 屏蔽字为空，表示不屏蔽任何信号
-    sigemptyset(&set);  
+    sigemptyset(&set);
 
     for(;;){
         // ngx_log_error_core(0,0,"----这是父进程----，pid为%P",ngx_pid);
-        
-        // sigsuspend阻塞在这里，等待一个信号，此时进程被挂起，不占用cpu事件，只有收到信号才会被唤醒（返回）
-        // 把一些列操作合在一起（原子操作）
-        // 可以取代sigprocmask , 避免被打断
-        sigsuspend(&set);
-        sleep(1);
-        // printf("执行到这里来了\n");
-        //TODO 以后扩充代码
     }
     return;
 }
@@ -123,16 +114,11 @@ static int ngx_spawn_process(int inum, const char *pprocname){
 // 子进程分支才会走到这里
 // inum：进程编号
 static void ngx_worker_process_cycle(int inum, const char *pprocname){
-    //设置一下进程类型
-    ngx_process = NGX_PROCESS_WORKER;
-
     ngx_worker_process_init(inum);  //重新为子进程设置进程名，不与父进程重复
     ngx_setproctitle(pprocname);
-    ngx_log_error_core(NGX_LOG_NOTICE, 0, "%s %P 启动并运行......!",pprocname, ngx_pid);
 
     for(;;){                        //子进程在这里循环
         // ngx_log_error_core(0,0,"good--这是子进程，编号为%d,pid为%P！",inum,ngx_pid);
-        sleep(1);
     }
 }
 
