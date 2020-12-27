@@ -28,7 +28,13 @@
 (c) misc目录：专门存放各种杂合性的不好归类的1到多个.c文件
 
 (d) net目录：专门存放网络处理相关的代码
+    
+    (d.1) ngx_c_socket.cpp 打开socket，绑定，监听配置文件中设置的端口
 
 (e) proc目录：专门存放和进程处理有关的
+    
+    (e.1) ngx_daemon.cxx 创建守护进程
+
+    (e.2) ngx_process_cycle.cxx 创建子进程
 
 (f) signal目录：专门存放和信号处理有关的目录
