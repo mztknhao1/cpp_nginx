@@ -105,7 +105,7 @@ bool CSocket::ngx_open_listening_sockets(){
     }
     
     
-    return false;
+    return true;
 }
 
 bool CSocket::setnonblocking(int sockfd){

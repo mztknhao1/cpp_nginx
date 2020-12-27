@@ -10,6 +10,7 @@
 #include "ngx_c_conf.h"
 #include "ngx_func.h"
 #include "ngx_macro.h"
+#include "ngx_c_socket.h"
 
 static void freeresource();
 
@@ -20,6 +21,9 @@ int     g_os_argc;          //参数个数
 char **g_os_argv;    //原始命令参数数组，在main中赋值
 char *gp_envmem = NULL;  //指向自己分配的env环境变量的内存
 int g_environlen = 0;   //环境变量所占内存大小
+
+// socket相关
+CSocket g_socket;
 
 // 和进程有关的全局量
 pid_t ngx_pid;          //当前进程的pid
@@ -67,6 +71,11 @@ int main(int argc, char *const *argv){
         goto lblexit;
     }
 
+    if(g_socket.Initialize() == false){
+        exitcode = 1;
+        goto lblexit;
+    }
+
     //设置新标题，这之前应该保证所有命令行参数都不用了
     ngx_init_setproctitle();  //把环境变量搬家
 
@@ -86,6 +95,8 @@ int main(int argc, char *const *argv){
         }
         g_daemonized = 1;       //守护进程标记
     }
+
+    
     
     //不管是父进程还是子进程，都在这个函数中循环往复
     ngx_master_process_cycle();

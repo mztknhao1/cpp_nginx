@@ -65,7 +65,7 @@ int ngx_init_signals(){
             ngx_log_error_core(NGX_LOG_EMERG, errno, "sigaction(%s) failed", sig->signame);
             return -1;
         }else{
-            ngx_log_stderr(0, "sigaction(%s) succed!", sig->signame);
+            // ngx_log_stderr(0, "sigaction(%s) succed!", sig->signame);
         }
     }
     return 0;
