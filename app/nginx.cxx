@@ -71,6 +71,7 @@ int main(int argc, char *const *argv){
         goto lblexit;
     }
 
+    //初始化监听端口
     if(g_socket.Initialize() == false){
         exitcode = 1;
         goto lblexit;

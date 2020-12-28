@@ -2,6 +2,8 @@
 #include <errno.h>
 #include <stdio.h>
 #include <sys/ioctl.h>
+#include <arpa/inet.h>
+#include <fcntl.h>
 
 #include "ngx_c_socket.h"
 #include "ngx_func.h"
@@ -9,8 +11,14 @@
 #include "ngx_macro.h"
 
 
-CSocket::CSocket():m_ListenPortCount(1){
+CSocket::CSocket():m_ListenPortCount(1),m_worker_connections(1024){
 
+}
+
+void CSocket::ReadConf(){
+    CConfig *p_config = CConfig::GetInstance();
+    m_worker_connections = p_config->GetIntDefault("worker_connections", m_worker_connections);
+    m_ListenPortCount = p_config->GetIntDefault("ListenPortCount", m_ListenPortCount);
 }
 
 
@@ -27,20 +35,20 @@ CSocket::~CSocket(){
 // 初始化函数【fork()子进程之前干这个事情】
 // 成功返回true, 失败返回false
 bool CSocket::Initialize(){
+    ReadConf();
     return ngx_open_listening_sockets();
 }
 
 
 // 在创建worker进程之前就要执行这个函数
 bool CSocket::ngx_open_listening_sockets(){
-    CConfig *p_config = CConfig::GetInstance();
-    m_ListenPortCount = p_config->GetIntDefault("ListenPortCount", m_ListenPortCount);
-
     int                 isock;        //socket
     struct  sockaddr_in serv_addr;    //服务器的地址结构体
     int                 iport;        //端口
     char                strinfo[100]; //临时字符串
     
+    CConfig *p_config = CConfig::GetInstance();
+
     // 初始化相关
     memset(&serv_addr, 0, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;             //选择协议族为IPV4
@@ -123,4 +131,71 @@ void CSocket::ngx_close_listening_sockets(){
         ngx_log_error_core(NGX_LOG_INFO, 0, "关闭监听端口%d!", m_ListenSocketList[i]->fd);
     }
     return;
+}
+
+int CSocket::ngx_epoll_init(){
+
+    //(1) 创建一个epoll对象，创建了一个红黑树和一个双向链表
+    m_epollhandle = epoll_create(m_worker_connections);
+    if(m_epollhandle == -1){
+        ngx_log_stderr(errno,"CSocekt::ngx_epoll_init()中epoll_create()失败.");
+        exit(2); //这是致命问题了，直接退，资源由系统释放吧，这里不刻意释放了，比较麻烦
+    }
+
+    //(2) 链接池【数组】、创建出来，后面用于处理所有的客户端连接
+    m_connection_n = m_worker_connections;      //记录当前连接池中连接总数
+    //连接池【数组，每个元素是一个对象】
+    m_pconnections = new ngx_connection_t[m_connection_n];  // new 不可以失败，失败了直接报异常，不用判断
+
+    int i = m_connection_n;                     //连接池中的连接数
+    lpngx_connection_t  next = nullptr;
+    lpngx_connection_t  c = m_pconnections;     //连接池数组首地址
+
+    // 下面在把链表串起来,链表的目的是把空闲的连接池连起来，每次释放就加入，增加就改变空闲链表，这是为了快速找到空闲连接池中的地方
+    do{
+        i--;
+
+        c[i].data = next;
+        c[i].fd   = -1;
+        c[i].instance = 1;
+        c[i].iCurrsequence = 0;
+
+        next = &c[i];
+    }while(i);
+
+    // 因为现在还没有任何链接，所以空闲的值为最大值
+    m_pfree_connections = next;
+    m_free_connection_n = m_connection_n;
+
+    //(3) 遍历所有监听端口，为每个监听socket增加一个连接池中的连接【让一个个的socket和一个内存绑定，方便记录socket相关的数据】
+    std::vector<lpngx_listening_t>::iterator pos;
+    for(pos = m_ListenSocketList.begin(); pos!=m_ListenSocketList.end();++pos){
+        c = ngx_get_connection((*pos)->fd);
+        if(c == nullptr){
+            //这是致命问题，刚开始怎么可能连接池就为空呢？
+            ngx_log_stderr(errno,"CSocekt::ngx_epoll_init()中ngx_get_connection()失败.");
+            exit(2); //这是致命问题了，直接退，资源由系统释放吧，这里不刻意释放了，比较麻烦
+        }
+
+        c->listening = (*pos);      //连接对象 和监听对象关联，方便通过连接对象找监听对象
+        (*pos)->connection = c;     //监听对象 和连接对象关联，方便通过监听对象找连接对象
+
+        
+        // 对监听端口设置事件处理方法，因为监听端口是用来等对方连接的发送三次握手的，所以监听端口关心的是读事件
+        c->rhandler = &CSocket::ngx_event_accept;
+
+        // 往监听socket上增加监听事件， 从而开始让监听端口履行职责
+        //【如果不加这行，虽然端口能连上，但不会触发ngx_epoll_process_events()里边的epoll_wait()往下走】
+    
+        if(ngx_epoll_add_event((*pos)->fd,
+                                1,0,
+                                0,
+                                EPOLL_CTL_ADD,
+                                c
+                                ) == -1)
+        {
+            exit(2);        //有问题，直接退出，日志已经谢过了（在ngx_epoll_add_event中写日志)
+        }
+    } // end for
+    return 1;
 }
