@@ -3,6 +3,7 @@
 #include "ngx_func.h"
 #include "ngx_macro.h"
 #include "ngx_c_conf.h"
+#include "ngx_global.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -134,6 +135,9 @@ static void ngx_worker_process_init(int inum){
         ngx_log_error_core(NGX_LOG_ALERT,errno,"ngx_worker_process_init()中sigprocmask()失败!");
     }
 
+    g_socket.ngx_epoll_init();
+
     //TODO 扩充代码
+
     return;
 }

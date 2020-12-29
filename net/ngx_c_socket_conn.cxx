@@ -50,3 +50,15 @@ lpngx_connection_t  CSocket::ngx_get_connection(int isock){
 
     return c;
 }
+
+void CSocket::ngx_free_connection(lpngx_connection_t c){
+    // 释放连接对象
+    
+    c->data = m_pfree_connections;
+    ++c->iCurrsequence;
+
+    m_pfree_connections = c;
+    ++m_free_connection_n;
+
+    return; 
+}

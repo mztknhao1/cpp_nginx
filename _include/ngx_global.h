@@ -1,6 +1,7 @@
 #ifndef __NGX_GBLDEF_H__
 #define __NGX_GBLDEF_H__
 
+#include "ngx_c_socket.h"
 
 typedef struct
 {
@@ -31,6 +32,8 @@ extern ngx_log_t ngx_log;
 extern int   g_daemonized;
 extern int 	 ngx_process;
 extern int   ngx_reap;
+
+extern CSocket g_socket;
 
 
 #endif

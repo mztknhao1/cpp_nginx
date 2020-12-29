@@ -199,3 +199,49 @@ int CSocket::ngx_epoll_init(){
     } // end for
     return 1;
 }
+
+// epoll 增加事件，可能被ngx_epoll_init()等函数调用,把监听端口感兴趣的事件增加到epoll管理的（红黑树）中去
+// fd: 句柄，一个socket
+// readevent: 表示是否是个读事件，0是，1不是
+// writeevent: 表示是否是个写事件，0是，1不是
+// otherflag: 其他额外补充标记
+// eventtype: 事件类型，一般就用系统的枚举值，增加，删除，修改
+// c : 对应连接池的指针
+// 返回值： 成功返回1，否则返回-1
+int CSocket::ngx_epoll_add_event(int fd, 
+                                 int readevent, int writeevent,
+                                 uint32_t otherflag,
+                                 uint32_t eventtype,
+                                 lpngx_connection_t c
+                                )
+{
+    struct epoll_event ev;
+
+    memset(&ev, 0, sizeof(ev));
+
+    if(readevent==1){
+        //读事件
+        // EPOLLRDHUP 客户端关闭连接，断连
+        ev.events = EPOLLIN|EPOLLRDHUP; //EPOLLIN读事件，也就是read ready【客户端三次握手连接进来】
+
+
+    }else{
+        //其他事件类型待处理
+        //...
+    }
+
+    if(otherflag != 0){
+        ev.events |= otherflag;
+    }
+
+    //event可以指定一段内存，将来通过ev.data.ptr可以把这段内存得到，nginx给了一个技巧，把地址和最后的instance或起来，地址最低位一定不是1，所以可以用这个来判断状态
+    //比如c是个地址，可能是0x00af8578, 对应的二进制101011110000010101111000 | 0x1
+    ev.data.ptr = (void *)((uintptr_t)c | c->instance); //把连接的地址保存，并通过或1，最后一位可置1或0，获得c->instance状态
+
+    if(epoll_ctl(m_epollhandle, eventtype, fd, &ev)==-1){
+        ngx_log_stderr(errno,"CSocekt::ngx_epoll_add_event()中epoll_ctl(%d,%d,%d,%u,%u)失败.",fd,readevent,writeevent,otherflag,eventtype);
+        //exit(2); //这是致命问题了，直接退，资源由系统释放吧，这里不刻意释放了，比较麻烦，后来发现不能直接退；
+        return -1;
+    }
+    return 1;
+}
