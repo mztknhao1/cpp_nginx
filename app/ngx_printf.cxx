@@ -29,6 +29,19 @@ u_char *ngx_slprintf(u_char *buf, u_char *last, const char *fmt, ...)
 }
 
 //----------------------------------------------------------------------------------------------------------------------
+//和上边的ngx_snprintf非常类似
+u_char * ngx_snprintf(u_char *buf, size_t max, const char *fmt, ...)   //类printf()格式化函数，比较安全，max指明了缓冲区结束位置
+{
+    u_char   *p;
+    va_list   args;
+
+    va_start(args, fmt);
+    p = ngx_vslprintf(buf, buf + max, fmt, args);
+    va_end(args);
+    return p;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
 //对于 nginx 自定义的数据结构进行标准格式化输出,就像 printf,vprintf 一样，我们顺道学习写这类函数到底内部是怎么实现的
 //例如，给进来一个 "abc = %d",13   ,最终buf里得到的应该是   abc=13 这种结果
 //buf：往这里放数据

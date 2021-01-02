@@ -4,6 +4,7 @@
 #include "ngx_macro.h"
 #include "ngx_c_conf.h"
 #include "ngx_global.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -121,7 +122,10 @@ static void ngx_worker_process_cycle(int inum, const char *pprocname){
     ngx_log_error_core(NGX_LOG_NOTICE,0,"%s %P 启动并开始运行......!",pprocname,ngx_pid); //设置标题时顺便记录下来进程名，进程id等信息到日志
 
     for(;;){                        //子进程在这里循环
-        // ngx_log_error_core(0,0,"good--这是子进程，编号为%d,pid为%P！",inum,ngx_pid);
+    
+        // 处理网络事件和定时器事件
+        ngx_process_events_and_timers();
+    
     }
 }
 
@@ -135,6 +139,7 @@ static void ngx_worker_process_init(int inum){
         ngx_log_error_core(NGX_LOG_ALERT,errno,"ngx_worker_process_init()中sigprocmask()失败!");
     }
 
+    // 已经做好了三次握手的准备
     g_socket.ngx_epoll_init();
 
     //TODO 扩充代码

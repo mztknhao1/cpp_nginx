@@ -71,11 +71,10 @@ private:
     void ReadConf();                                                    //读取各种配置项
 
 
-//TODO
     //一些业务处理函数handler
     void ngx_event_accept(lpngx_connection_t oldc);
     void ngx_wait_request_handler(lpngx_connection_t c);
-    void ngx_close_accept_aconnection(lpngx_connection_t c);
+    void ngx_close_accepted_connection(lpngx_connection_t c);
 
     //获取对端信息相关
     size_t  ngx_sock_ntop(struct sockaddr *sa, int port, u_char *text, size_t len);

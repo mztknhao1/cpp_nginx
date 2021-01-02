@@ -124,6 +124,9 @@ bool CSocket::setnonblocking(int sockfd){
     return true;
 }
 
+
+
+
 // 关闭socket
 void CSocket::ngx_close_listening_sockets(){
     for(int i=0;i < m_ListenPortCount; i++){
@@ -244,4 +247,102 @@ int CSocket::ngx_epoll_add_event(int fd,
         return -1;
     }
     return 1;
+}
+
+
+// 本函数被ngx_process_events_and_timers()调用，这个函数是子进程不断调用的
+// 正常返回1， 有问题返回-1
+// 参数unsigned int timer；epoll_wait()阻塞时长，单位为毫秒
+int CSocket::ngx_epoll_process_events(int timer){
+    // 等待事件，事件会返回到m_events中，最多返回NGX_MAX_EVENTS事件
+    // timer = -1 表示一直阻塞，如果timer为0则表示立即返回
+    // 如果两次调用epoll_wait()的事件间隔比较长，则可能在epoll双向链表中，积累了多个事件
+    // epoll_wait返回的可能原因：1）阻塞时间到达 2）阻塞期间收到时间 3）调用时有事件 4）收到中断信号
+    int events = epoll_wait(m_epollhandle, m_events, NGX_MAX_EVENTS, timer);
+
+    if(-1 == events){
+        //有错误发生，发送某个信号给本进程
+
+        // #define EINTR 4   这个信号问题不是很大，正常返回
+        if(errno == EINTR){
+            //信号所致，直接返回，一般认为这不是毛病，但还是打印下日志记录一下，因为一般也不会人为给worker进程发送消息
+            ngx_log_error_core(NGX_LOG_INFO,errno,"CSocekt::ngx_epoll_process_events()中epoll_wait()失败!"); 
+            return 1;  //正常返回
+        }
+        else{
+            ngx_log_error_core(NGX_LOG_ALERT,errno,"CSocekt::ngx_epoll_process_events()中epoll_wait()失败!"); 
+            return 0;  //非正常返回 
+        }
+    }
+
+    if(0 == events){
+        // 超时，但是没有事件来
+        if(timer != -1){
+            // 阻塞一段事件，正常返回
+            return 1;
+        }
+        // 无线等待，但却没有返回任何事件，这里不正常
+        ngx_log_error_core(NGX_LOG_ALERT,0,"CSocekt::ngx_epoll_process_events()中epoll_wait()没超时却没返回任何事件!"); 
+        return 0; //非正常返回 
+    }
+
+    // 会惊群，一个telnet上来，四个worker进程都会被惊动
+    // ngx_log_stderr(errno, "惊群测试1")
+
+    // 走到这里，就表示有事件收到了
+    lpngx_connection_t  c;
+    uintptr_t           instance;
+    uint32_t            revents;
+
+    // 遍历本次epoll_wait()返回的事件
+    for(int i = 0;i<events;++i){
+        c = (lpngx_connection_t)(m_events[i].data.ptr);
+        instance = (uintptr_t)c & 1;
+        c = (lpngx_connection_t)((uintptr_t)c & (uintptr_t)~1); //把最后一位去除，得到真正的地址
+
+
+        // 过滤过期事件
+        if(c->fd == -1){    //一个套接字，当关联一个 连接池中的连接【对】时
+            // 比如我们使用epoll_wait取得3个事件，但是由于业务需要，
+            // 我们把第1个事件连接关闭
+            
+            //这里可以增加个日志，也可以不增加日志
+            ngx_log_error_core(NGX_LOG_DEBUG,0,"CSocekt::ngx_epoll_process_events()中遇到了fd=-1的过期事件:%p.",c); 
+            continue; //这种事件就不处理即可
+        }
+
+
+        // 能走到这里，我们认为这些事件都没过期，正常处理
+        revents = m_events[i].events;   //取出事件类型
+        if(revents & (EPOLLERR | EPOLLHUP)){
+            // 如果发生了错误，或者客户端断连
+            // 这里加上读写标记，方便后续代码处理
+            revents |= EPOLLIN | EPOLLOUT;
+        }
+
+        if(revents & EPOLLIN){
+            // 如果是读事件
+            // ngx_log_stderr(errno,"数据来了来了来了 ~~~~~~~~~~~~~.");
+            //一个客户端新连入，这个会成立，
+            //已连接发送数据来，这个也成立；
+            //c->r_ready = 1;               //标记可以读；【从连接池拿出一个连接时这个连接的所有成员都是0】            
+            // 下面是个函数调用
+            (this->*(c->rhandler))(c);      // c->rhandler ，对于连接事件来说，是CSocket::ngx_event_accept
+                                            // *(c->rhandler)是解引用，表示调用这个函数
+                                            // 但是这个函数是CSocket成员函数，所以需要用this->*(c->rhandler)取出
+        }
+
+        if(revents & EPOLLOUT){
+            // 如果是写事件
+
+            //TODO 待扩展
+
+            ngx_log_stderr(errno, "1111111111111111111");
+        }
+
+        return 1;
+
+
+    }
+
 }
