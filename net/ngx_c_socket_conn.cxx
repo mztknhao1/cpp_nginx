@@ -17,6 +17,7 @@
 #include "ngx_global.h"
 #include "ngx_func.h"
 #include "ngx_c_socket.h"
+#include "ngx_c_memory.h"
 
 
 // 从连接池中获取一个空闲连接，当一个客户端连接TCP进入，我希望把这个连接和我的连接池中的一个对象绑定在一起，后续我可以通过这个连接把这个对象拿到】
@@ -42,6 +43,12 @@ lpngx_connection_t  CSocket::ngx_get_connection(int isock){
     //(2) 把以往有用的数据取出后，清空并给适当值
     memset(c, 0, sizeof(ngx_connection_t));
     c->fd = isock;
+    c->curStat = _PKG_HD_INIT;                  //收包处于初始状态
+    c->precvbuf = c->dataHeadInfo;              //收包先收包头
+    c->irecvlen = sizeof(comm_pkg_header_t);
+    c->ifnewrecvMem = false;                    //标记我们没有new内存，所以不用释放
+    c->pnewMemPointer = NULL;                   //既然没有new内存，自然就先指向空
+    //......其他内容可以再增加
 
     //(3) 这个值有用，所以在上边(1)中被保留，没有被清空，现在又把这个值赋回来
     c->instance = !instance;    // 最初这个值默认为1，取反为0
@@ -53,6 +60,13 @@ lpngx_connection_t  CSocket::ngx_get_connection(int isock){
 
 void CSocket::ngx_free_connection(lpngx_connection_t c){
     // 释放连接对象
+
+    //!这里释放了一些之前分配的内存
+    if(c->ifnewrecvMem == true){
+        CMemory::GetInstance()->FreeMemory(c->pnewMemPointer);
+        c->pnewMemPointer = NULL;
+        c->ifnewrecvMem = false;
+    }
     
     c->data = m_pfree_connections;
     ++c->iCurrsequence;
@@ -61,4 +75,18 @@ void CSocket::ngx_free_connection(lpngx_connection_t c){
     ++m_free_connection_n;
 
     return; 
+}
+
+//用户连入，我们accept4()时，得到的socket在处理中产生失败，则资源用这个函数释放【因为这里涉及到好几个要释放的资源，所以写成函数】
+void CSocket::ngx_close_connection(lpngx_connection_t c)
+{
+    int fd = c->fd;
+    ngx_free_connection(c);
+    if(close(fd) == -1)
+    {
+        ngx_log_error_core(NGX_LOG_ALERT,errno,"CSocekt::ngx_close_accepted_connection()中close(%d)失败!",fd);  
+    }
+    c->fd = -1; //官方nginx这么写，这么写有意义；
+
+    return;
 }

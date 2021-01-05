@@ -9,6 +9,7 @@ export INCLUDE_PATH = $(BUILD_ROOT)/_include
 BUILD_DIR = $(BUILD_ROOT)/signal/ \
 			$(BUILD_ROOT)/proc/   \
 			$(BUILD_ROOT)/net/    \
+			$(BUILD_ROOT)/misc/   \
 			$(BUILD_ROOT)/app/
 
 # 编译时是否成成调试信息，GNU调试器可以利用该信息

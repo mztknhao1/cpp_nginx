@@ -12,7 +12,14 @@
 
 
 CSocket::CSocket():m_ListenPortCount(1),m_worker_connections(1024){
+    m_epollhandle = -1;
+    m_pconnections = nullptr;
+    m_pfree_connections = nullptr;
 
+
+    //一些和网络通讯相关常数
+    m_iLenPkgHeader = sizeof(comm_pkg_header_t);
+    m_iLenMsgHeader = sizeof(msg_header_t);
 }
 
 void CSocket::ReadConf(){
@@ -258,6 +265,8 @@ int CSocket::ngx_epoll_process_events(int timer){
     // timer = -1 表示一直阻塞，如果timer为0则表示立即返回
     // 如果两次调用epoll_wait()的事件间隔比较长，则可能在epoll双向链表中，积累了多个事件
     // epoll_wait返回的可能原因：1）阻塞时间到达 2）阻塞期间收到时间 3）调用时有事件 4）收到中断信号
+    // epoll_wait收集，分发，（消费）
+//!收集分发收集到的生产者生产的事件
     int events = epoll_wait(m_epollhandle, m_events, NGX_MAX_EVENTS, timer);
 
     if(-1 == events){
@@ -320,6 +329,7 @@ int CSocket::ngx_epoll_process_events(int timer){
             revents |= EPOLLIN | EPOLLOUT;
         }
 
+//!读事件消费者
         if(revents & EPOLLIN){
             // 如果是读事件
             // ngx_log_stderr(errno,"数据来了来了来了 ~~~~~~~~~~~~~.");
@@ -332,6 +342,7 @@ int CSocket::ngx_epoll_process_events(int timer){
                                             // 但是这个函数是CSocket成员函数，所以需要用this->*(c->rhandler)取出
         }
 
+//!写事件消费者
         if(revents & EPOLLOUT){
             // 如果是写事件
 
@@ -342,6 +353,7 @@ int CSocket::ngx_epoll_process_events(int timer){
 
         return 1;
 
+//!每一个消费者都不能堵塞
 
     }
 

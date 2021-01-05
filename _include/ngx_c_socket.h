@@ -4,6 +4,8 @@
 #include <vector>
 #include <sys/epoll.h>
 #include <sys/socket.h>
+#include <list>
+#include "ngx_comm.h"
 
 // 一些专用的宏定义
 #define NGX_LISTEN_BACKLOG 511
@@ -12,6 +14,7 @@
 typedef struct ngx_listening_s  ngx_listening_t, *lpngx_listening_t;
 typedef struct ngx_connection_s ngx_connection_t, *lpngx_connection_t;
 typedef class   CSocket         CSocket;
+typedef struct msg_header_s     msg_header_t, *lpmsg_header_t;
 
 typedef void    (CSocket::*ngx_event_handler_pt)(lpngx_connection_t c);     //成员函数指针
 
@@ -44,12 +47,29 @@ struct ngx_connection_s
 
 	ngx_event_handler_pt      rhandler;       //读事件的相关处理方法
 	ngx_event_handler_pt      whandler;       //写事件的相关处理方法
+
+    //和收包状态相关----------------------
+    unsigned char             curStat;                          //当前收包状态
+    char                      dataHeadInfo[_DATA_BUFSIZE_];     //用于保存收到的数据的头信息
+    char                      *precvbuf;                        //接收数据的缓冲区的头指针，对收到的不全的包非常有用
+    unsigned    int           irecvlen;                         //要收到多少数据
+    bool                      ifnewrecvMem;                     //如果成功收到包头，那么我们就要分配内存
+    char                      *pnewMemPointer;                  //new出来的用于收包的内存首地址
 	
 	//--------------------------------------------------
 	lpngx_connection_t        data;           //这是个指针【等价于传统链表里的next成员：后继指针】，指向下一个本类型对象，用于把空闲的连接池对象串起来构成一个单向链表，方便取用
 };
 
-// socket相关类
+// 消息头，引入的目的是当收到数据包时，额外记录一些内容以备用-------------------------------------------
+struct msg_header_s{
+    lpngx_connection_t  pConn;              //指向连接结构体
+    uint64_t            iCurrsequence;      //收到数据包时记录对应连接序号，将来能用于比较是否连接已经作废
+};
+
+
+
+
+// socket相关类-------------------------------------------------------------------------------------
 class CSocket
 {
 public:
@@ -74,7 +94,16 @@ private:
     //一些业务处理函数handler
     void ngx_event_accept(lpngx_connection_t oldc);
     void ngx_wait_request_handler(lpngx_connection_t c);
-    void ngx_close_accepted_connection(lpngx_connection_t c);
+    void ngx_close_connection(lpngx_connection_t c);
+
+    ssize_t recvproc(lpngx_connection_t c, char *buff, ssize_t buflen); //接收从客户端来的数据
+    void    ngx_wait_request_handler_proc_p1(lpngx_connection_t c);     //包头收完整后的处理，包处理阶段1
+    void    ngx_wait_request_handler_proc_plast(lpngx_connection_t c);  //收到一个完整包后的处理
+    void    inMsgRecvQueue(char *buf);                                  //收到一个完整消息后，进入消息队列
+    void    tmpoutMsgRecvQueue();                                       //临时测试用函数
+    void    clearMsgRecvQueue();                                        //清理接收消息队列
+
+
 
     //获取对端信息相关
     size_t  ngx_sock_ntop(struct sockaddr *sa, int port, u_char *text, size_t len);
@@ -97,6 +126,12 @@ private:
     std::vector<lpngx_listening_t>      m_ListenSocketList;             //监听套接字队列
 
     struct epoll_event                  m_events[NGX_MAX_EVENTS];
+
+    int                                 m_iLenPkgHeader;                //包头占用字节数
+    int                                 m_iLenMsgHeader;                //消息头占用字节数
+
+    //消息队列
+    std::list<char *>                   m_MsgRecvQueue;                 //接收消息的队列
 };
 
 #endif

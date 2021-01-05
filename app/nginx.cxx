@@ -11,6 +11,7 @@
 #include "ngx_func.h"
 #include "ngx_macro.h"
 #include "ngx_c_socket.h"
+#include "ngx_c_memory.h"
 
 static void freeresource();
 
@@ -63,6 +64,9 @@ int main(int argc, char *const *argv){
         exitcode = 2;  //标记找不到文件
         goto lblexit;
     }
+
+    //收包用的单例内存类在这里初始化
+    CMemory::GetInstance();	
 
     //一些初始化函数
     ngx_log_init();        //日志初始化（创建/打开日志文件）
