@@ -13,6 +13,7 @@
 //#include <sys/socket.h>
 #include <sys/ioctl.h> //ioctl
 #include <arpa/inet.h>
+#include "ngx_c_lockmutex.h"
 
 #include "ngx_c_conf.h"
 #include "ngx_macro.h"
@@ -229,6 +230,7 @@ void CSocket::ngx_wait_request_handler_proc_p1(lpngx_connection_t c)
 void CSocket::ngx_wait_request_handler_proc_plast(lpngx_connection_t c)
 {
     //把这段内存放到消息队列中来；
+    CLock   lock(&m_recvMessageQueueMutex);
     inMsgRecvQueue(c->pnewMemPointer);
     //......这里可能考虑触发业务逻辑，怎么触发业务逻辑，这个代码以后再考虑扩充。。。。。。
     

@@ -132,6 +132,11 @@ private:
 
     //消息队列
     std::list<char *>                   m_MsgRecvQueue;                 //接收消息的队列
+
+    //多线程相关
+    pthread_mutex_t                     m_recvMessageQueueMutex;        //收消息队列互斥量
+
+
 };
 
 #endif

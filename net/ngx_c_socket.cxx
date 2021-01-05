@@ -4,6 +4,7 @@
 #include <sys/ioctl.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <pthread.h>
 
 #include "ngx_c_socket.h"
 #include "ngx_func.h"
@@ -20,6 +21,9 @@ CSocket::CSocket():m_ListenPortCount(1),m_worker_connections(1024){
     //一些和网络通讯相关常数
     m_iLenPkgHeader = sizeof(comm_pkg_header_t);
     m_iLenMsgHeader = sizeof(msg_header_t);
+
+    //多线程相关
+    pthread_mutex_init(&m_recvMessageQueueMutex,NULL);       //互斥量初始化
 }
 
 void CSocket::ReadConf(){
@@ -35,6 +39,10 @@ CSocket::~CSocket(){
         delete (*pos);
     }
     m_ListenSocketList.clear();
+
+
+    pthread_mutex_destroy(&m_recvMessageQueueMutex);        //互斥量释放
+
     return;
 }
 
