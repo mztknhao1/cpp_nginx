@@ -2,6 +2,8 @@
 #define __NGX_GBLDEF_H__
 
 #include "ngx_c_socket.h"
+#include "ngx_c_threadpool.h"
+#include "ngx_c_slogic.h"
 
 typedef struct
 {
@@ -33,7 +35,8 @@ extern int   g_daemonized;
 extern int 	 ngx_process;
 extern int   ngx_reap;
 
-extern CSocket g_socket;
+extern CLogicSocket g_socket;
+extern CThreadPool g_threadpool;
 
 
 #endif

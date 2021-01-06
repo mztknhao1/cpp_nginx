@@ -231,7 +231,7 @@ void CSocket::ngx_wait_request_handler_proc_plast(lpngx_connection_t c)
 {
     //把这段内存放到消息队列中来；
     CLock   lock(&m_recvMessageQueueMutex);
-    inMsgRecvQueue(c->pnewMemPointer);
+    g_threadpool.inMsgRecvQueueAndSignal(c->pnewMemPointer);    //入消息队列并触发线程处理消息
     //......这里可能考虑触发业务逻辑，怎么触发业务逻辑，这个代码以后再考虑扩充。。。。。。
     
     c->ifnewrecvMem    = false;            //内存不再需要释放，因为你收完整了包，这个包被上边调用inMsgRecvQueue()移入消息队列，那么释放内存就属于业务逻辑去干，不需要回收连接到连接池中干了
@@ -242,21 +242,28 @@ void CSocket::ngx_wait_request_handler_proc_plast(lpngx_connection_t c)
     return;
 }
 
+
+
+
+/*
 //---------------------------------------------------------------
 //当收到一个完整包之后，将完整包入消息队列，这个包在服务器端应该是 消息头+包头+包体 格式
 void CSocket::inMsgRecvQueue(char *buf) //buf这段内存 ： 消息头 + 包头 + 包体
 {
-    m_MsgRecvQueue.push_back(buf);	
 
-    //....其他功能待扩充，这里要记住一点，这里的内存都是要释放的，否则。。。。。。。。。。日后增加释放这些内存的代码
-    //...而且逻辑处理应该要引入多线程，所以这里要考虑临界问题
-    //....
+    g_threadpool.inMsgRecvQueueAndSignal(buf);
 
-    //临时在这里调用一下该函数，以防止接收消息队列过大
-    tmpoutMsgRecvQueue();   //.....临时，后续会取消这行代码
+    // m_MsgRecvQueue.push_back(buf);	
 
-    //为了测试方便，因为本函数意味着收到了一个完整的数据包，所以这里打印一个信息
-    ngx_log_stderr(0,"非常好，收到了一个完整的数据包【包头+包体】！");  
+    // //....其他功能待扩充，这里要记住一点，这里的内存都是要释放的，否则。。。。。。。。。。日后增加释放这些内存的代码
+    // //...而且逻辑处理应该要引入多线程，所以这里要考虑临界问题
+    // //....
+
+    // //临时在这里调用一下该函数，以防止接收消息队列过大
+    // tmpoutMsgRecvQueue();   //.....临时，后续会取消这行代码
+
+    // //为了测试方便，因为本函数意味着收到了一个完整的数据包，所以这里打印一个信息
+    // ngx_log_stderr(0,"非常好，收到了一个完整的数据包【包头+包体】！");  
 }
 
 //临时函数，用于将Msg中消息干掉
@@ -282,5 +289,14 @@ void CSocket::tmpoutMsgRecvQueue()
         m_MsgRecvQueue.pop_front();               //移除第一个元素但不返回	
         p_memory->FreeMemory(sTmpMsgBuf);         //先释放掉把；
     }        
+    return;
+}
+*/
+
+//消息处理线程主函数，专门处理各种接收到的TCP消息
+//pMsgBuf：发送过来的消息缓冲区，消息本身是自解释的，通过包头可以计算整个包长
+//         消息本身格式【消息头+包头+包体】 
+void CSocket::threadRecvProcFunc(char *pMsgBuf)
+{   
     return;
 }

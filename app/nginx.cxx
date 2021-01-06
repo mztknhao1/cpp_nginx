@@ -12,6 +12,9 @@
 #include "ngx_macro.h"
 #include "ngx_c_socket.h"
 #include "ngx_c_memory.h"
+#include "ngx_c_threadpool.h"
+#include "ngx_c_crc32.h"
+#include "ngx_c_slogic.h"
 
 static void freeresource();
 
@@ -24,7 +27,7 @@ char *gp_envmem = NULL;  //指向自己分配的env环境变量的内存
 int g_environlen = 0;   //环境变量所占内存大小
 
 // socket相关
-CSocket g_socket;
+CLogicSocket g_socket;
 
 // 和进程有关的全局量
 pid_t ngx_pid;          //当前进程的pid
@@ -34,6 +37,9 @@ int   g_daemonized;     //是否启用守护进程
 int ngx_process;        //进程类型，比如master / worker
 sig_atomic_t   ngx_reap;   //标记子进程状态变化，一般是子进程发来SIGCHLD信号表示退出
                             //sig_atomic_t  : 系统定义
+
+// 管理线程池的全局量
+CThreadPool g_threadpool;
 
 
 int main(int argc, char *const *argv){
@@ -67,6 +73,7 @@ int main(int argc, char *const *argv){
 
     //收包用的单例内存类在这里初始化
     CMemory::GetInstance();	
+    CCRC32::GetInstance();
 
     //一些初始化函数
     ngx_log_init();        //日志初始化（创建/打开日志文件）
@@ -84,6 +91,7 @@ int main(int argc, char *const *argv){
     //设置新标题，这之前应该保证所有命令行参数都不用了
     ngx_init_setproctitle();  //把环境变量搬家
 
+    
 
     // 创建守护进程
     if(p_config->GetIntDefault("Daemon",0) == 1){

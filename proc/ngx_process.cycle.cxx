@@ -127,6 +127,10 @@ static void ngx_worker_process_cycle(int inum, const char *pprocname){
         ngx_process_events_and_timers();
     
     }
+
+    // 考虑在这里停止线程
+    g_threadpool.StopAll();
+    return;
 }
 
 
@@ -138,6 +142,15 @@ static void ngx_worker_process_init(int inum){
     if(sigprocmask(SIG_SETMASK, &set, NULL) == -1){
         ngx_log_error_core(NGX_LOG_ALERT,errno,"ngx_worker_process_init()中sigprocmask()失败!");
     }
+
+    // 线程池代码，必须在epoll初始化之前创建，因为epoll创建了就可能来事件
+    CConfig *p_config = CConfig::GetInstance();
+    int numThreads = p_config->GetIntDefault("ProcMsgRecvWorkThreadCount",5);
+    if(g_threadpool.Create(numThreads) == false){
+        //创建线程失败
+        exit(-2);
+    }
+    sleep(1);
 
     // 已经做好了三次握手的准备
     g_socket.ngx_epoll_init();

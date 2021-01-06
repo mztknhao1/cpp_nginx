@@ -75,12 +75,12 @@ class CSocket
 public:
     CSocket();             
     virtual ~CSocket();
-
-public:
     virtual bool Initialize();                                          //初始化函数
+    virtual void threadRecvProcFunc(char *pMsgBuf);
+    
     int  ngx_epoll_init();                                              //初始化epoll，利用epoll_create()创建epoll对象
 
-    //TODO 添加事件和处理事件
+    //添加事件和处理事件
     int ngx_epoll_add_event(int fd, int readevent, int writeevent, uint32_t otherflag, uint32_t eventtype, lpngx_connection_t c);
     int ngx_epoll_process_events(int timer);
 

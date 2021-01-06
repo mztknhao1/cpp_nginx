@@ -8,6 +8,7 @@
 #include <memory>
 
 
+//线程池管理类
 class CThreadPool{
 public:
     CThreadPool();

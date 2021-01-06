@@ -77,11 +77,20 @@ void* CThreadPool::ThreadFunc(void* threadData){
     pthread_t   tid = pthread_self();                               //线程自己的tid
 
     while(true){
+
+        //必须在pthread_mutex_wait()之前，先上个锁，然后在while()中调用pthread_cond_wait()
+
+        //TODO 这里的一些关于pthread的函数可以改成c++11的多线程函数，暂时还没改，改了可以跨平台
+        err = pthread_mutex_lock(&m_pthreadMutex);
+        if(err != 0) ngx_log_stderr(err,"CThreadPool::ThreadFunc()pthread_mutex_lock()失败，返回的错误码为%d!",err);//有问题，要及时报告
+
+        //这个while循环很关键
         while((pThreadPoolObj->m_MsgRecvQueue.size() == 0) && m_shutdown == false){
             if(pThread->ifrunning == false)
                 pThread->ifrunning = true;      //测试中发现如果Create()和StopAll()紧挨着调用，就会导致线程混乱
                                                 //所以加了这个判断
             
+            //!线程卡在这里，等待条件变量被激发，且这句会把m_pthreadMutex释放
             pthread_cond_wait(&m_pthreadCond, &m_pthreadMutex);
         }
 
@@ -92,11 +101,11 @@ void* CThreadPool::ThreadFunc(void* threadData){
             break;                      
         }
 
-        char *jobbuf = pThreadPoolObj->m_MsgRecvQueue.front();      //走到这里必然由消息
+        char *jobbuf = pThreadPoolObj->m_MsgRecvQueue.front();      //走到这里必然有消息
         pThreadPoolObj->m_MsgRecvQueue.pop_front();
         --pThreadPoolObj->m_iRecvMsgQueueCount;
 
-        //可以解锁互斥量了
+        //可以解锁互斥量了,取出了队列中的信息就解锁互斥量!
         err = pthread_mutex_unlock(&m_pthreadMutex);
         if(err != 0){
             ngx_log_stderr(err,"CThreadPool::ThreadFunc()pthread_cond_wait()失败，返回的错误码为%d!",err);//有问题，要及时报告
@@ -105,6 +114,7 @@ void* CThreadPool::ThreadFunc(void* threadData){
         ++pThreadPoolObj->m_iRuningThreadNum;       //原子+1【记录正在干活的线程数量】比互斥量快的多
 
         //TODO 处理消息队列中来的消息
+        g_socket.threadRecvProcFunc(jobbuf);
 
         p_memory->FreeMemory(jobbuf);
         --pThreadPoolObj->m_iRuningThreadNum;
@@ -164,8 +174,6 @@ void CThreadPool::inMsgRecvQueueAndSignal(char *buf){
     m_MsgRecvQueue.push_back(buf);
     ++m_iRecvMsgQueueCount;
 
-    err = pthread_mutex_unlock(&m_pthreadMutex);
-
     //取消互斥
     err = pthread_mutex_unlock(&m_pthreadMutex);   
     if(err != 0)
@@ -185,6 +193,7 @@ void CThreadPool::Call(){
         //这是有问题啊，要打印日志啊
         ngx_log_stderr(err,"CThreadPool::Call()中pthread_cond_signal()失败，返回的错误码为%d!",err);
     }
+
 
     //如果当前的工作线程都忙，则要报警
     if(m_iThreadNum == m_iRuningThreadNum){
