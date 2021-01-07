@@ -14,7 +14,7 @@ private:
     static CCRC32 *m_instance;
 
 public:
-    static CRC32* GetInstance(){
+    static CCRC32* GetInstance(){
         if(m_instance == NULL){
             if(m_instance == NULL){
                 m_instance = new CCRC32();

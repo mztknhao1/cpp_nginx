@@ -4,6 +4,7 @@
 #include "ngx_c_socket.h"
 #include "ngx_c_threadpool.h"
 #include "ngx_c_slogic.h"
+#include "HandlerFactory.h"
 
 typedef struct
 {
@@ -37,6 +38,8 @@ extern int   ngx_reap;
 
 extern CLogicSocket g_socket;
 extern CThreadPool g_threadpool;
+
+extern HandlerFactory g_handlerFactory;
 
 
 #endif

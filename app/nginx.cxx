@@ -15,6 +15,8 @@
 #include "ngx_c_threadpool.h"
 #include "ngx_c_crc32.h"
 #include "ngx_c_slogic.h"
+#include "HandlerFactory.h"
+#include "LoginHandler.h"
 
 static void freeresource();
 
@@ -41,6 +43,8 @@ sig_atomic_t   ngx_reap;   //标记子进程状态变化，一般是子进程发
 // 管理线程池的全局量
 CThreadPool g_threadpool;
 
+HandlerFactory g_handlerFactory;
+
 
 int main(int argc, char *const *argv){
     int exitcode = 0;
@@ -62,6 +66,12 @@ int main(int argc, char *const *argv){
     ngx_log.fd = -1;                //-1 表示日志文件尚未打开
     ngx_process = NGX_PROCESS_MASTER;   
     ngx_reap = 0;
+
+    //业务处理逻辑类在这里new, 这里可以通过使用配置文件来决定有哪些服务函数
+    //不过c++没有反射机制，注册起来还是一个问题。。。
+    IRequestHandler* loginHandler = new LoginHandler();
+    g_handlerFactory.setHandler(std::string("5"), loginHandler);
+
 
     // 初始化，如果初始化失败就直接退出
     CConfig *p_config = CConfig::GetInstance();
@@ -113,13 +123,6 @@ int main(int argc, char *const *argv){
     
     //不管是父进程还是子进程，都在这个函数中循环往复
     ngx_master_process_cycle();
-
-
-
-    // for(;;){
-    //     sleep(1);
-    //     printf("休息1s\n");
-    // }
 
     ngx_log_stderr(0,"InValid Info: %d", 10);
     ngx_log_error_core(1, 2, "这里工作出了问题:%s --- %.2f", "WHAT", 12.3);

@@ -112,6 +112,10 @@ private:
     lpngx_connection_t  ngx_get_connection(int isock);                  //从连接池获取一个空闲连接
     void                ngx_free_connection(lpngx_connection_t c);      //释放一个连接
 
+protected:
+    int                                 m_iLenPkgHeader;                //包头占用字节数
+    int                                 m_iLenMsgHeader;                //消息头占用字节数
+
 private:
     int                                 m_ListenPortCount;              //监听端口数量
     int                                 m_worker_connections;           //每个worker进程监听端口数量
@@ -127,8 +131,6 @@ private:
 
     struct epoll_event                  m_events[NGX_MAX_EVENTS];
 
-    int                                 m_iLenPkgHeader;                //包头占用字节数
-    int                                 m_iLenMsgHeader;                //消息头占用字节数
 
     //消息队列
     std::list<char *>                   m_MsgRecvQueue;                 //接收消息的队列
