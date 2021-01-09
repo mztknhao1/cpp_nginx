@@ -1,4 +1,11 @@
-//和网络 中 获取一些ip地址等信息 有关的函数放这里
+/*
+ * @Author: your name
+ * @Date: 2021-01-02 11:20:40
+ * @LastEditTime: 2021-01-09 12:26:50
+ * @LastEditors: Please set LastEditors
+ * @Description: In User Settings Edit
+ * @FilePath: /mztkn_study_nginx/nginx/net/ngx_c_socket_inet.cxx
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

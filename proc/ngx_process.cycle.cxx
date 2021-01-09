@@ -12,7 +12,7 @@
 
 //函数声明
 static void ngx_start_worker_processes(int threadnums);
-static int ngx_spawn_process(int threadnums, const char *pprocname);
+static int  ngx_spawn_process(int threadnums, const char *pprocname);
 static void ngx_worker_process_cycle(int inum, const char *pprocname);
 static void ngx_worker_process_init(int inum);
 
@@ -125,11 +125,12 @@ static void ngx_worker_process_cycle(int inum, const char *pprocname){
     
         // 处理网络事件和定时器事件
         ngx_process_events_and_timers();
+        
     
     }
 
-    // 考虑在这里停止线程
-    g_threadpool.StopAll();
+    g_threadpool.StopAll();                 //考虑在这里停止线程池
+    g_socket.shutdownSubproc();             //socket需要释放的东西考虑释放
     return;
 }
 
@@ -143,6 +144,7 @@ static void ngx_worker_process_init(int inum){
         ngx_log_error_core(NGX_LOG_ALERT,errno,"ngx_worker_process_init()中sigprocmask()失败!");
     }
 
+    // !线程池初始化代码在这里
     // 线程池代码，必须在epoll初始化之前创建，因为epoll创建了就可能来事件
     CConfig *p_config = CConfig::GetInstance();
     int numThreads = p_config->GetIntDefault("ProcMsgRecvWorkThreadCount",5);
@@ -151,6 +153,14 @@ static void ngx_worker_process_init(int inum){
         exit(-2);
     }
     sleep(1);
+
+    if(g_socket.initializeSubproc()==false){
+        //没有内存释放，直接退出
+        ngx_log_stderr(0,"子进程初始化过程失败");
+        exit(-2);
+    }else{
+        ngx_log_stderr(0,"子进程初始化过程成功");
+    }
 
     // 已经做好了三次握手的准备
     g_socket.ngx_epoll_init();
