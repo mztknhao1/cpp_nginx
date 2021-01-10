@@ -17,6 +17,7 @@
 #include "ngx_c_slogic.h"
 #include "HandlerFactory.h"
 #include "LoginHandler.h"
+#include "RegisterHandler.h"
 
 static void freeresource();
 
@@ -77,7 +78,9 @@ int main(int argc, char *const *argv){
     //业务处理逻辑类在这里new, 这里可以通过使用配置文件来决定有哪些服务函数
     //不过c++没有反射机制，注册起来还是一个问题。。。
     IRequestHandler* loginHandler = new LoginHandler();
+    IRequestHandler* registerHandler = new RegisterHandler();
     g_handlerFactory.setHandler(std::string("5"), loginHandler);
+    g_handlerFactory.setHandler(std::string("6"), registerHandler);
 
 
     // (2) 初始化，如果初始化失败就直接退出

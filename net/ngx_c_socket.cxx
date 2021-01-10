@@ -350,19 +350,34 @@ int CSocket::ngx_epoll_oper_event(
     if(eventtype == EPOLL_CTL_ADD) //往红黑树中增加节点；
     {
         //红黑树从无到有增加节点
-        ev.data.ptr = (void *)pConn;
+        // ev.data.ptr = (void *)pConn;
         ev.events = flag;      //既然是增加节点，则不管原来是啥标记
         pConn->events = flag;  //这个连接本身也记录这个标记
     }
     else if(eventtype == EPOLL_CTL_MOD)
     {
         //节点已经在红黑树中，修改节点的事件信息
+        ev.events = pConn->events;                          //先把标记恢复
+        if(bcaction == 0){
+            //增加某个标记
+            ev.events |= flag;
+        }else if(bcaction == 1){
+            //去掉某个标记
+            ev.events &= ~flag;
+        }else{
+            //完全覆盖某个标记
+            ev.events = flag;
+        }
+        pConn->events = ev.events;
+
     }
     else
     {
         //删除红黑树中节点，目前没这个需求，所以将来再扩展
         return  1;  //先直接返回1表示成功
     } 
+
+    ev.data.ptr = (void*)pConn;
 
     if(epoll_ctl(m_epollhandle,eventtype,fd,&ev) == -1)
     {

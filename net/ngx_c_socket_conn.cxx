@@ -36,32 +36,32 @@ void ngx_connection_s::GetOneToUse()
 {
     ++iCurrsequence;
 
-    curStat = _PKG_HD_INIT;                           //收包状态处于 初始状态，准备接收数据包头【状态机】
-    precvbuf = dataHeadInfo;                          //收包我要先收到这里来，因为我要先收包头，所以收数据的buff直接就是dataHeadInfo
-    irecvlen = sizeof(comm_pkg_header_t);               //这里指定收数据的长度，这里先要求收包头这么长字节的数据
+    curStat                 = _PKG_HD_INIT;                   //收包状态处于 初始状态，准备接收数据包头【状态机】
+    precvbuf                = dataHeadInfo;                   //收包我要先收到这里来，因为我要先收包头，所以收数据的buff直接就是dataHeadInfo
+    irecvlen                = sizeof(comm_pkg_header_t);      //这里指定收数据的长度，这里先要求收包头这么长字节的数据
     
-    precvMemPointer = NULL;                           //既然没new内存，那自然指向的内存地址先给NULL
-    iThrowsendCount = 0;                              //原子的
-    psendMemPointer = NULL;                           //发送数据头指针记录
-    events          = 0;                              //epoll事件先给0 
+    precvMemPointer         = NULL;                           //既然没new内存，那自然指向的内存地址先给NULL
+    iThrowsendCount         = 0;                              //原子的
+    psendMemPointer         = NULL;                           //发送数据头指针记录
+    events                  = 0;                              //epoll事件先给0 
 }
 
 //回收回来一个连接的时候做一些事
 void ngx_connection_s::PutOneToFree()
 {
     ++iCurrsequence;   
-    if(precvMemPointer != NULL)//我们曾经给这个连接分配过接收数据的内存，则要释放内存
+    if(precvMemPointer != NULL)                                 //我们曾经给这个连接分配过接收数据的内存，则要释放内存
     {        
         CMemory::GetInstance()->FreeMemory(precvMemPointer);
         precvMemPointer = NULL;        
     }
-    if(psendMemPointer != NULL) //如果发送数据的缓冲区里有内容，则要释放内存
+    if(psendMemPointer != NULL)                                 //如果发送数据的缓冲区里有内容，则要释放内存
     {
         CMemory::GetInstance()->FreeMemory(psendMemPointer);
         psendMemPointer = NULL;
     }
 
-    iThrowsendCount = 0;                              //设置不设置感觉都行         
+    iThrowsendCount = 0;                                        //设置不设置感觉都行         
 }
 
 //---------------------------------------------------------------
@@ -72,14 +72,14 @@ void CSocket::initConnection()
     CMemory *p_memory = CMemory::GetInstance();   
 
     int ilenconnpool = sizeof(ngx_connection_t);    
-    for(int i = 0; i < m_worker_connections; ++i) //先创建这么多个连接，后续不够再增加
+    for(int i = 0; i < m_worker_connections; ++i)               //先创建这么多个连接，后续不够再增加
     {
         p_Conn = (lpngx_connection_t)p_memory->AllocMemory(ilenconnpool,true); //清理内存 , 因为这里分配内存new char，无法执行构造函数，所以如下：
         //手工调用构造函数，因为AllocMemory里无法调用构造函数
-        p_Conn = new(p_Conn) ngx_connection_t();  //定位new【不懂请百度】，释放则显式调用p_Conn->~ngx_connection_t();		
+        p_Conn = new(p_Conn) ngx_connection_t();                //定位new，释放则显式调用p_Conn->~ngx_connection_t();		
         p_Conn->GetOneToUse();
-        m_connectionList.push_back(p_Conn);     //所有链接【不管是否空闲】都放在这个list
-        m_freeConnectionList.push_back(p_Conn); //空闲连接会放在这个list
+        m_connectionList.push_back(p_Conn);                     //所有链接【不管是否空闲】都放在这个list
+        m_freeConnectionList.push_back(p_Conn);                 //空闲连接会放在这个list
     } //end for
     m_free_connection_n = m_total_connection_n = m_connectionList.size(); //开始这两个列表一样大
     return;
@@ -122,7 +122,7 @@ lpngx_connection_t CSocket::ngx_get_connection(int isock)
     lpngx_connection_t p_Conn = (lpngx_connection_t)p_memory->AllocMemory(sizeof(ngx_connection_t),true);
     p_Conn = new(p_Conn) ngx_connection_t();
     p_Conn->GetOneToUse();
-    m_connectionList.push_back(p_Conn); //入到总表中来，但不能入到空闲表中来，因为凡是调这个函数的，肯定是要用这个连接的
+    m_connectionList.push_back(p_Conn);                             //入到总表中来，但不能入到空闲表中来，因为凡是调这个函数的，肯定是要用这个连接的
     ++m_total_connection_n;             
     p_Conn->fd = isock;
     return p_Conn;

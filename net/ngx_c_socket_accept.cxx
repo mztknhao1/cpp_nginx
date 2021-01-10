@@ -116,12 +116,6 @@ void CSocket::ngx_event_accept(lpngx_connection_t oldc)
 
         //成功的拿到了连接池中的一个连接
         memcpy(&newc->s_sockaddr,&mysockaddr,socklen);  //拷贝客户端地址到连接对象【要转成字符串ip地址参考函数ngx_sock_ntop()】
-        //{
-        //    //测试将收到的地址弄成字符串，格式形如"192.168.1.126:40904"或者"192.168.1.126"
-        //    u_char ipaddr[100]; memset(ipaddr,0,sizeof(ipaddr));
-        //    ngx_sock_ntop(&newc->s_sockaddr,1,ipaddr,sizeof(ipaddr)-10); //宽度给小点
-        //    ngx_log_stderr(0,"ip信息为%s\n",ipaddr);
-        //}
 
         if(!use_accept4)
         {
