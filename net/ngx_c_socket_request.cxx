@@ -22,7 +22,7 @@
 #include "ngx_c_lockmutex.h"  //自动释放互斥量的一个类
 
 //来数据时候的处理，当连接上有数据来的时候，本函数会被ngx_epoll_process_events()所调用  ,官方的类似函数为ngx_http_wait_request_handler();
-void CSocket::ngx_wait_request_handler(lpngx_connection_t pConn)
+void CSocket::ngx_read_request_handler(lpngx_connection_t pConn)
 {  
     //收包，注意我们用的第二个和第三个参数，我们用的始终是这两个参数，因此我们必须保证 c->precvbuf指向正确的收包位置，保证c->irecvlen指向正确的收包宽度
     ssize_t reco = recvproc(pConn,pConn->precvbuf,pConn->irecvlen); 
@@ -36,7 +36,7 @@ void CSocket::ngx_wait_request_handler(lpngx_connection_t pConn)
     {        
         if(reco == m_iLenPkgHeader)//正好收到完整包头，这里拆解包头
         {   
-            ngx_wait_request_handler_proc_p1(pConn); //那就调用专门针对包头处理完整的函数去处理把。
+            ngx_read_request_handler_proc_p1(pConn); //那就调用专门针对包头处理完整的函数去处理把。
         }
         else
 		{
@@ -51,7 +51,7 @@ void CSocket::ngx_wait_request_handler(lpngx_connection_t pConn)
         if(pConn->irecvlen == reco) //要求收到的宽度和我实际收到的宽度相等
         {
             //包头收完整了
-            ngx_wait_request_handler_proc_p1(pConn); //那就调用专门针对包头处理完整的函数去处理把。
+            ngx_read_request_handler_proc_p1(pConn); //那就调用专门针对包头处理完整的函数去处理把。
         }
         else
 		{
@@ -67,7 +67,7 @@ void CSocket::ngx_wait_request_handler(lpngx_connection_t pConn)
         if(reco == pConn->irecvlen)
         {
             //收到的宽度等于要收的宽度，包体也收完整了
-            ngx_wait_request_handler_proc_plast(pConn);
+            ngx_read_request_handler_proc_plast(pConn);
         }
         else
 		{
@@ -83,7 +83,7 @@ void CSocket::ngx_wait_request_handler(lpngx_connection_t pConn)
         if(pConn->irecvlen == reco)
         {
             //包体收完整了
-            ngx_wait_request_handler_proc_plast(pConn);
+            ngx_read_request_handler_proc_plast(pConn);
         }
         else
         {
@@ -173,7 +173,7 @@ ssize_t CSocket::recvproc(lpngx_connection_t c,char *buff,ssize_t buflen)  //ssi
 
 
 //包头收完整后的处理，我们称为包处理阶段1【p1】：写成函数，方便复用
-void CSocket::ngx_wait_request_handler_proc_p1(lpngx_connection_t pConn)
+void CSocket::ngx_read_request_handler_proc_p1(lpngx_connection_t pConn)
 {
     CMemory *p_memory = CMemory::GetInstance();		
 
@@ -221,7 +221,7 @@ void CSocket::ngx_wait_request_handler_proc_p1(lpngx_connection_t pConn)
         {
             //该报文只有包头无包体【我们允许一个包只有包头，没有包体】
             //这相当于收完整了，则直接入消息队列待后续业务逻辑线程去处理吧
-            ngx_wait_request_handler_proc_plast(pConn);
+            ngx_read_request_handler_proc_plast(pConn);
         } 
         else
         {
@@ -236,7 +236,7 @@ void CSocket::ngx_wait_request_handler_proc_p1(lpngx_connection_t pConn)
 }
 
 //收到一个完整包后的处理【plast表示最后阶段】，放到一个函数中，方便调用
-void CSocket::ngx_wait_request_handler_proc_plast(lpngx_connection_t pConn)
+void CSocket::ngx_read_request_handler_proc_plast(lpngx_connection_t pConn)
 {
     //把这段内存放到消息队列中来；
     //int irmqc = 0;  //消息队列当前信息数量
@@ -317,3 +317,42 @@ void CSocket::threadRecvProcFunc(char *pMsgBuf)
 }
 
 
+void CSocket::ngx_write_request_handler(lpngx_connection_t pConn){
+    CMemory *pMemory = CMemory::GetInstance();
+
+    ssize_t sendsize = sendproc(pConn, pConn->psendbuf, pConn->isendLen);
+
+    if(sendsize > 0 && sendsize != pConn->isendLen){
+        //没有发送完
+        pConn->psendbuf += sendsize;
+        pConn->isendLen -= sendsize;
+        return;
+    }else if(sendsize == -1){
+        ngx_log_stderr(errno,"CSocekt::ngx_write_request_handler()时if(sendsize == -1)成立，这很怪异。"); //打印个日志，别的先不干啥
+        return;
+    }
+
+    if(sendsize > 0 && sendsize == pConn->isendLen){
+        
+        //如果数据发送完毕，那么把事件从epoll中拿去
+        if(ngx_epoll_oper_event(
+            pConn->fd, 
+            EPOLL_CTL_MOD,
+            EPOLLOUT,
+            1,
+            pConn
+        )==-1){
+            ngx_log_stderr(errno,"CSocekt::ngx_write_request_handler()中ngx_epoll_oper_event()失败。");
+        }
+        ngx_log_stderr(0,"CSocekt::ngx_write_request_handler()中数据发送完毕，很好。"); //做个提示吧
+    }
+
+    //数据发送完毕，让发送线程走下来，看看能不能发送新数据
+    if(sem_post(&m_semEventSendQueue)==-1)
+        ngx_log_stderr(0,"CSocekt::ngx_write_request_handler()中sem_post(&m_semEventSendQueue)失败.");
+
+    pMemory->FreeMemory(pConn->psendMemPointer);
+    pConn->psendMemPointer = nullptr;
+    --pConn->iThrowsendCount;
+    return;
+}

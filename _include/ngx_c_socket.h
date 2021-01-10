@@ -105,8 +105,6 @@ public:
     int ngx_epoll_process_events(int timer);                            //epoll等待接收和处理事件
     int ngx_epoll_oper_event(int fd, uint32_t eventtype, uint32_t flag, int bcaction, lpngx_connection_t pConn);
                                                                         //epoll操作事件
-
-protected:
     //TODO数据发送相关
     void msgSend(char *psendbuf);
 
@@ -119,12 +117,13 @@ private:
 
     //一些业务处理函数handler
     void ngx_event_accept(lpngx_connection_t oldc);
-    void ngx_wait_request_handler(lpngx_connection_t c);
+    void ngx_read_request_handler(lpngx_connection_t c);
+    void ngx_write_request_handler(lpngx_connection_t c);
     void ngx_close_connection(lpngx_connection_t c);
 
     ssize_t recvproc(lpngx_connection_t c, char *buff, ssize_t buflen); //接收从客户端来的数据
-    void    ngx_wait_request_handler_proc_p1(lpngx_connection_t c);     //包头收完整后的处理，包处理阶段1
-    void    ngx_wait_request_handler_proc_plast(lpngx_connection_t c);  //收到一个完整包后的处理
+    void    ngx_read_request_handler_proc_p1(lpngx_connection_t c);     //包头收完整后的处理，包处理阶段1
+    void    ngx_read_request_handler_proc_plast(lpngx_connection_t c);  //收到一个完整包后的处理
     void    clearMsgSendQueue();                                        //清理接收消息队列
 
     ssize_t sendproc(lpngx_connection_t c, char *buff, ssize_t size);   //TODO发送数据到客户端
@@ -141,6 +140,7 @@ private:
 
     //线程相关函数
     static  void*       serverRecyConnectionThread(void *threadData);   //专门用来回收连接队列中的待回收线程
+    static  void*       serverSendQueueThread(void *threadData);
 
 protected:
     int                                 m_iLenPkgHeader;                //包头占用字节数

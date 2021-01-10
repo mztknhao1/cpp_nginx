@@ -85,15 +85,157 @@ bool CSocket::initializeSubproc()
 
     //创建线程
     int err;
+    //创建发送消息线程
+    ThreadItem *pSendQueue = new ThreadItem(this);
+    m_threadVector.push_back(pSendQueue);
+    err = pthread_create(&pSendQueue->_Handle, NULL, serverSendQueueThread, pSendQueue);
+    if(err != 0){
+        return false;
+    }
 
-    ThreadItem *pRecyconn;
-    m_threadVector.push_back(pRecyconn = new ThreadItem(this)); 
+
+    //创建连接回收线程
+    ThreadItem *pRecyconn = new ThreadItem(this);
+    m_threadVector.push_back(pRecyconn); 
     err = pthread_create(&pRecyconn->_Handle, NULL, serverRecyConnectionThread,pRecyconn);
     if(err != 0)
     {
         return false;
     }
     return true;
+}
+
+void *CSocket::serverSendQueueThread(void *threadData){
+    ThreadItem *pThread = static_cast<ThreadItem*>(threadData);
+    CSocket *pSocketObj = pThread->_pThis;
+    int err;
+    std::list<char *>::iterator pos, pos2, posend;
+
+    char *pMsgBuf;
+    lpmsg_header_t      pMsgHeader;
+    lpcomm_pkg_header_t pPkgHeader;
+    lpngx_connection_t  pConn;
+    unsigned short      itmp;
+    ssize_t             sendsize;
+
+    CMemory *pMemroy = CMemory::GetInstance();
+
+    while(g_stopEvent){         //不退出
+        if(sem_wait(&pSocketObj->m_semEventSendQueue) == -1){
+            //失败？及时报告，其他的也不好干啥
+            if(errno != EINTR) //这个我就不算个错误了【当阻塞于某个慢系统调用的一个进程捕获某个信号且相应信号处理函数返回时，该系统调用可能返回一个EINTR错误。】
+                ngx_log_stderr(errno,"CSocekt::ServerSendQueueThread()中sem_wait(&pSocketObj->m_semEventSendQueue)失败.");            
+        }
+
+        if(g_stopEvent != 0){
+            break;
+        }
+
+        if(pSocketObj->m_iSendMsgQueueCount > 0){
+            err = pthread_mutex_lock(&pSocketObj->m_sendMessageQueueMutex);
+            if(err != 0){
+                ngx_log_stderr(err,"CSocekt::ServerSendQueueThread()中pthread_mutex_lock()失败，返回的错误码为%d!",err);
+            }
+
+            pos = pSocketObj->m_MsgSendQueue.begin();
+            posend = pSocketObj->m_MsgSendQueue.end();
+
+            while(pos != posend){
+                pMsgBuf = (*pos);
+                pMsgHeader = (lpmsg_header_t)pMsgBuf;
+                pPkgHeader = (lpcomm_pkg_header_t)(pMsgBuf+pSocketObj->m_iLenMsgHeader);
+                pConn = pMsgHeader->pConn;
+
+                //包过期
+                if(pConn->iCurrsequence != pMsgHeader->iCurrsequence){
+                    //本包保存的序列号与pConn中的实际序列号不同，丢弃此消息
+                    pos2 = pos;
+                    pos++;
+                    pSocketObj->m_MsgSendQueue.erase(pos2);
+                    --pSocketObj->m_iSendMsgQueueCount;
+                    pMemroy->FreeMemory(pMsgBuf);
+                    continue;
+                }
+
+                if(pConn->iThrowsendCount>0){
+                    //靠系统驱动来发消息，所以这里不能再发送
+                    pos++;
+                    continue;
+                }
+
+                //走到这里，可以发送消息，一些必须的信息记录，要发送的东西也要从发送队列中干掉
+                pConn->psendMemPointer = pMsgBuf;
+                pos2 = pos;
+                pos++;
+                pSocketObj->m_MsgSendQueue.erase(pos2);
+                --pSocketObj->m_iSendMsgQueueCount;
+                pConn->psendbuf = (char *)pPkgHeader;
+                itmp = ntohs(pPkgHeader->pkgLen);
+                pConn->isendLen = itmp;
+
+                ngx_log_stderr(errno, "即将发送数据%ud",pConn->isendLen);
+                //(1)直接用write或send发送数据
+                sendsize = pSocketObj->sendproc(pConn, pConn->psendbuf, pConn->isendLen);
+
+                if(sendsize > 0){
+                    if(sendsize == pConn->isendLen){        //成功发送出去了数据
+                        pMemroy->FreeMemory(pConn->psendMemPointer);
+                        pConn->psendMemPointer = nullptr;
+                        pConn->iThrowsendCount = 0;
+                        ngx_log_stderr(0,"CSocekt::ServerSendQueueThread()中数据发送完毕，很好。"); //做个提示吧，商用时可以干掉
+                    }else{                                      //没有全部发送完毕
+                        pConn->psendbuf += sendsize;
+                        pConn->isendLen -= sendsize;
+
+                        //标记缓冲区满了，需要通过epoll事件来驱动消息继续发送
+                        ++pConn->iThrowsendCount;
+                        if(pSocketObj->ngx_epoll_oper_event(
+                            pConn->fd,
+                            EPOLL_CTL_MOD,
+                            EPOLLOUT,
+                            0,
+                            pConn
+                        )==-1){
+                            ngx_log_stderr(errno,"CSocekt::ServerSendQueueThread()ngx_epoll_oper_event()失败.");
+                        }
+
+                        ngx_log_stderr(errno,"CSocekt::ServerSendQueueThread()中数据没发送完毕【发送缓冲区满】，整个要发送%d，实际发送了%d。",pConn->isendLen,sendsize);
+                    }
+                    continue;       //继续处理其它消息
+                }else if(sendsize==0){
+                    pMemroy->FreeMemory(pConn->psendMemPointer);
+                    pConn->psendMemPointer = nullptr;
+                    pConn->iThrowsendCount = 0;
+                    continue;
+                }else if(sendsize==-1){
+                    //发送缓冲区满了，且一个字节都没发送出去
+                    ++pConn->iThrowsendCount;
+                    if(pSocketObj->ngx_epoll_oper_event(
+                                pConn->fd,         //socket句柄
+                                EPOLL_CTL_MOD,      //事件类型，这里是增加【因为我们准备增加个写通知】
+                                EPOLLOUT,           //标志，这里代表要增加的标志,EPOLLOUT：可写【可写的时候通知我】
+                                0,                  //对于事件类型为增加的，EPOLL_CTL_MOD需要这个参数, 0：增加   1：去掉 2：完全覆盖
+                                pConn              //连接池中的连接
+                    ) == -1){
+                        //有这情况发生？这可比较麻烦，不过先do nothing
+                        ngx_log_stderr(errno,"CSocekt::ServerSendQueueThread()中ngx_epoll_add_event()_2失败.");
+                    }
+                    continue;
+                }else{
+                    //能走到这里，一般就是返回值-2，认为断开，等待recv()来做断开回收资源
+                    pMemroy->FreeMemory(pConn->psendMemPointer);
+                    pConn->psendMemPointer = nullptr;
+                    pConn->iThrowsendCount = 0;
+                    continue;
+                }
+            }//end while
+            err = pthread_mutex_unlock(&pSocketObj->m_sendMessageQueueMutex);
+            if(err != 0){
+                ngx_log_stderr(err,"CSocekt::ServerSendQueueThread()pthread_mutex_unlock()失败，返回的错误码为%d!",err);
+            }
+        }//if(pSocketObj->m_iSendMsgQueueCount > 0)
+    }//end while
+    return (void *)0;
 }
 
 //--------------------------------------------------------------------------
@@ -114,6 +256,12 @@ CSocket::~CSocket()
 //关闭退出函数[子进程中执行]
 void CSocket::shutdownSubproc()
 {
+    //(0)在程序退出之前，可能需要让sem+1，让线程退出
+    if(sem_post(&m_semEventSendQueue)==-1){
+        ngx_log_stderr(0, "CSocket::Shutdown_subproc()中的sem_post失败.");
+    }
+
+
     //(1)把干活的线程停止掉，注意 系统应该尝试通过设置 g_stopEvent = 1来 开始让整个项目停止
     std::vector<ThreadItem*>::iterator iter;
 	for(iter = m_threadVector.begin(); iter != m_threadVector.end(); iter++)
@@ -456,12 +604,16 @@ int CSocket::ngx_epoll_process_events(int timer)
             //c->r_ready = 1;               //标记可以读；【从连接池拿出一个连接时这个连接的所有成员都是0】            
             (this->* (c->rhandler) )(c);    //注意括号的运用来正确设置优先级，防止编译出错；【如果是个新客户连入
                                               //如果新连接进入，这里执行的应该是CSocket::ngx_event_accept(c)】            
-                                              //如果是已经连入，发送数据到这里，则这里执行的应该是 CSocket::ngx_wait_request_handler
+                                              //如果是已经连入，发送数据到这里，则这里执行的应该是 CSocket::ngx_read_request_handler
         }
         
         if(revents & EPOLLOUT) //如果是写事件【对方关闭连接也触发这个，再研究。。。。。。】，注意上边的 if(revents & (EPOLLERR|EPOLLHUP))  revents |= EPOLLIN|EPOLLOUT; 读写标记都给加上了
         {
-            //....待扩展， 客户端关闭时，关闭的时候能够执行到这里，因为上边有if(revents & (EPOLLERR|EPOLLHUP))  revents |= EPOLLIN|EPOLLOUT; 代码
+            if(revents & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)){   //客户端关闭，如果服务端挂着一个写事件通知，这个条件可能成立
+                --c->iThrowsendCount;
+            }else{
+                (this->*(c->whandler))(c);
+            }
 
             ngx_log_stderr(errno,"111111111111111111111111111111.");
 
