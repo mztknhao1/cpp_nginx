@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2021-01-09 13:01:29
- * @LastEditTime: 2021-01-10 15:06:10
+ * @LastEditTime: 2021-01-11 09:56:09
  * @LastEditors: Please set LastEditors
  * @Description: In User Settings Edit
  * @FilePath: /mztkn_study_nginx/nginx/logic/RegisterHandler.cxx
@@ -22,7 +22,7 @@
 //TODO 还没写具体处理逻辑
 bool RegisterHandler::doHandler(lpngx_connection_t pConn, lpmsg_header_t pMsgHeader, char *pPkgBody, unsigned short iBodyLength){
     
-    // ngx_log_stderr(0, "开始执行RegisterHandler函数()");
+    ngx_log_stderr(0, "开始执行RegisterHandler函数()");
     // return false;
     //（1）首先判断包体的合法性
     if(pPkgBody == nullptr){
@@ -50,6 +50,8 @@ bool RegisterHandler::doHandler(lpngx_connection_t pConn, lpmsg_header_t pMsgHea
     int iMsgHeadLen = sizeof(msg_header_t);
     int iPkgHeadLen = sizeof(comm_pkg_header_t);
     //a) 要分配发出去的包的内存
+
+iSendLen = 60000;
     char *pSendBuf = (char *)pMemory->AllocMemory(iSendLen+iMsgHeadLen+iPkgHeadLen, false);
     //b) 填充消息头
     memcpy(pSendBuf, pMsgHeader, iMsgHeadLen);
@@ -69,16 +71,6 @@ bool RegisterHandler::doHandler(lpngx_connection_t pConn, lpmsg_header_t pMsgHea
 
     //f) 发送数据包
     g_socket.msgSend(pSendBuf);
-    if(g_socket.ngx_epoll_oper_event(
-                                pConn->fd,          //socekt句柄
-                                EPOLL_CTL_MOD,      //事件类型，这里是增加
-                                EPOLLOUT,           //标志，这里代表要增加的标志,EPOLLOUT：可写
-                                0,                  //对于事件类型为增加的，EPOLL_CTL_MOD需要这个参数, 0：增加   1：去掉 2：完全覆盖
-                                pConn               //连接池中的连接
-                                ) == -1)        
-    {
-        ngx_log_stderr(0,"1111111111111111111111111111111111111111111111111111111111111!");
-    } 
 
-    return false;
+    return true;
 }
