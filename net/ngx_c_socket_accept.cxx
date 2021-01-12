@@ -101,6 +101,12 @@ void CSocket::ngx_event_accept(lpngx_connection_t oldc)
         }  //end if(s == -1)
 
         //走到这里的，表示accept4()/accept()成功了        
+        if(m_onlineUserCount >= m_worker_connections){
+            ngx_log_stderr(0,"超出系统允许的最大连入用户数(最大允许连入数%d)，关闭连入请求(%d)。",m_worker_connections,s);  
+            close(s);
+            return;
+        }
+        
         //ngx_log_stderr(errno,"accept4成功s=%d",s); //s这里就是 一个句柄了
         newc = ngx_get_connection(s); //这是针对新连入用户的连接，和监听套接字 所对应的连接是两个不同的东西，不要搞混
         if(newc == NULL)
@@ -112,7 +118,6 @@ void CSocket::ngx_event_accept(lpngx_connection_t oldc)
             }
             return;
         }
-        //...........将来这里会判断是否连接超过最大允许连接数，现在，这里可以不处理
 
         //成功的拿到了连接池中的一个连接
         memcpy(&newc->s_sockaddr,&mysockaddr,socklen);  //拷贝客户端地址到连接对象【要转成字符串ip地址参考函数ngx_sock_ntop()】

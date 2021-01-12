@@ -46,6 +46,10 @@ void ngx_connection_s::GetOneToUse()
     events                  = 0;                                //epoll事件先给0 
     lastPingTime            = time(NULL);                       //上一次ping的时间
 
+    FloodkickLastTime       = 0;
+    FloodAttackCount        = 0;
+    iSendCount              = 0;
+
 }
 
 //回收回来一个连接的时候做一些事
@@ -169,10 +173,11 @@ void CSocket::inRecyConnectQueue(lpngx_connection_t pConn)
         return;
     }
 
-    pConn->inRecyTime = time(NULL);        //记录回收时间
+    pConn->inRecyTime = time(NULL);         //记录回收时间
     ++pConn->iCurrsequence;
-    m_recyConnectionList.push_back(pConn); //等待ServerRecyConnectionThread线程自会处理 
-    ++m_total_recyconnection_n;            //待释放连接队列大小+1
+    m_recyConnectionList.push_back(pConn);  //等待ServerRecyConnectionThread线程自会处理 
+    ++m_total_recyconnection_n;             //待释放连接队列大小+1
+    --m_onlineUserCount;                    //连入数量减一
     return;
 }
 

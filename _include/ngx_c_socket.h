@@ -40,55 +40,60 @@ struct ngx_connection_s
     void    GetOneToUse();
     void    PutOneToFree();
 	
-	int                       fd;                                           //套接字句柄socket
-	lpngx_listening_t         listening;                                    //如果这个链接被分配给了一个监听套接字，那么这个里边就指向监听套接字对应的那个lpngx_listening_t的内存首地址		
+	int                         fd;                                             //套接字句柄socket
+	lpngx_listening_t           listening;                                      //如果这个链接被分配给了一个监听套接字，那么这个里边就指向监听套接字对应的那个lpngx_listening_t的内存首地址		
 
-	//------------------------------------	
-	//unsigned                  instance:1;                                   //【位域】失效标志位：0：有效，1：失效【这个是官方nginx提供，到底有什么用，ngx_epoll_process_events()中详解】  
-	uint64_t                  iCurrsequence;                                //引入的一个序号，每次分配出去时+1，此法也有可能在一定程度上检测错包废包，具体怎么用，用到了再说
-	struct sockaddr           s_sockaddr;                                   //保存对方地址信息用的
-	//char                      addr_text[100];                             //地址的文本信息，100足够，一般其实如果是ipv4地址，255.255.255.255，其实只需要20字节就够
+	//---------------------------------------	
+	//unsigned                    instance:1;                                   //【位域】失效标志位：0：有效，1：失效【这个是官方nginx提供，到底有什么用，ngx_epoll_process_events()中详解】  
+	uint64_t                    iCurrsequence;                                  //引入的一个序号，每次分配出去时+1，此法也有可能在一定程度上检测错包废包，具体怎么用，用到了再说
+	struct sockaddr             s_sockaddr;                                     //保存对方地址信息用的
+	//char                        addr_text[100];                               //地址的文本信息，100足够，一般其实如果是ipv4地址，255.255.255.255，其实只需要20字节就够
 
-	//和读有关的标志-----------------------
-	//uint8_t                   r_ready;                                    //读准备好标记【暂时没闹明白官方要怎么用，所以先注释掉】
-	//uint8_t                   w_ready;                                      //写准备好标记
+	//和读有关的标志---------------------------
+	//uint8_t                     r_ready;                                      //读准备好标记【暂时没闹明白官方要怎么用，所以先注释掉】
+	//uint8_t                     w_ready;                                      //写准备好标记
 
-	ngx_event_handler_pt      rhandler;                                     //读事件的相关处理方法
-	ngx_event_handler_pt      whandler;                                     //写事件的相关处理方法
+	ngx_event_handler_pt        rhandler;                                       //读事件的相关处理方法
+	ngx_event_handler_pt        whandler;                                       //写事件的相关处理方法
 
-    //和用户操作有关的互斥量
-    pthread_mutex_t           logicProcMutex;                               //逻辑处理相关互斥量
+    //和用户操作有关的互斥量    
+    pthread_mutex_t             logicProcMutex;                                 //逻辑处理相关互斥量
 
-    //和epoll事件相关
-    uint32_t                  events;                                       //和epoll事件相关
+    //和epoll事件相关   
+    uint32_t                    events;                                         //和epoll事件相关
 
-    //和收包状态相关----------------------
-    unsigned char             curStat;                                      //当前收包状态
-    char                      dataHeadInfo[_DATA_BUFSIZE_];                 //用于保存收到的数据的头信息
-    char                      *precvbuf;                                    //接收数据的缓冲区的头指针，对收到的不全的包非常有用
-    unsigned    int           irecvlen;                                     //要收到多少数据
-    char                      *precvMemPointer;                             //new出来的用于收包的内存首地址
-	
-    //和发包状态有关----------------------
-    std::atomic<int>          iThrowsendCount;                                  //发送消息，如果发送缓冲区满了，则需要通过epoll时间驱动消息继续发送；用这个变量来标记
-    char                      *psendMemPointer;                             //发送完以后释放用的，整个数据的头指针
-    char                      *psendbuf;                                    //发送数据的缓冲区头指针
-    unsigned int              isendLen;                                     //要发送多少数据
+    //和收包状态相关----------------------------
+    unsigned char               curStat;                                        //当前收包状态
+    char                        dataHeadInfo[_DATA_BUFSIZE_];                   //用于保存收到的数据的头信息
+    char                        *precvbuf;                                      //接收数据的缓冲区的头指针，对收到的不全的包非常有用
+    unsigned    int             irecvlen;                                       //要收到多少数据
+    char                        *precvMemPointer;                               //new出来的用于收包的内存首地址
+    
+    //和发包状态有关-----------------------------
+    std::atomic<int>            iThrowsendCount;                                //发送消息，如果发送缓冲区满了，则需要通过epoll时间驱动消息继续发送；用这个变量来标记
+    char                        *psendMemPointer;                               //发送完以后释放用的，整个数据的头指针
+    char                        *psendbuf;                                      //发送数据的缓冲区头指针
+    unsigned int                isendLen;                                       //要发送多少数据
 
-    //和回收相关
-    time_t                    inRecyTime;                                   //入到资源回收占里去的时间
+    //和回收相关    
+    time_t                      inRecyTime;                                     //入到资源回收占里去的时间
 
-    //和心跳包有关
-    time_t                    lastPingTime;                                 //上一次Ping的时间
+    //和心跳包有关  
+    time_t                      lastPingTime;                                   //上一次Ping的时间
 
-	//--------------------------------------------------
-	lpngx_connection_t        next;                                         //这是个指针【等价于传统链表里的next成员：后继指针】，指向下一个本类型对象，用于把空闲的连接池对象串起来构成一个单向链表，方便取用
+    //和网络安全相关
+    uint64_t                    FloodkickLastTime;                              //上一次收到包的时间
+    int                         FloodAttackCount;                               //Flood攻击在该时间内收到包的统计
+    std::atomic<int>            iSendCount;                                     //发送队列中有的数据条目，则有可能造成此过大，依据此作为处理
+    
+    //--------------------------------------------------
+	lpngx_connection_t        next;                                             //这是个指针【等价于传统链表里的next成员：后继指针】，指向下一个本类型对象，用于把空闲的连接池对象串起来构成一个单向链表，方便取用
 };
 
 // 消息头，引入的目的是当收到数据包时，额外记录一些内容以备用-------------------------------------------
 struct msg_header_s{
-    lpngx_connection_t  pConn;                                              //指向连接结构体
-    uint64_t            iCurrsequence;                                      //收到数据包时记录对应连接序号，将来能用于比较是否连接已经作废
+    lpngx_connection_t  pConn;                                                  //指向连接结构体
+    uint64_t            iCurrsequence;                                          //收到数据包时记录对应连接序号，将来能用于比较是否连接已经作废
 };
 
 
@@ -132,7 +137,7 @@ private:
 
     ssize_t recvproc(lpngx_connection_t c, char *buff, ssize_t buflen); //接收从客户端来的数据
     void    ngx_read_request_handler_proc_p1(lpngx_connection_t c);     //包头收完整后的处理，包处理阶段1
-    void    ngx_read_request_handler_proc_plast(lpngx_connection_t c);  //收到一个完整包后的处理
+    void    ngx_read_request_handler_proc_plast(lpngx_connection_t c, bool isflood);  //收到一个完整包后的处理
     void    clearMsgSendQueue();                                        //清理接收消息队列
 
     ssize_t sendproc(lpngx_connection_t c, char *buff, ssize_t size);   //发送数据到客户端
@@ -154,6 +159,8 @@ private:
     lpmsg_header_t      GetOverTimeTimer(time_t cur_time);              //根据给的当前时间，从m_timeQueuemap找到比这个时间更早的节点【1个】返回
     void                DeleteFromTimerQueue(lpngx_connection_t pConn); //把指定用户tcp连接从timer表中扣除去
     void                clearAllFromTimeQueue();                        //清理时间队列中所有内容
+
+    bool                TestFlood(lpngx_connection_t pConn);            //测试是否flood攻击成立
 
     //线程相关函数
     static  void*       serverRecyConnectionThread(void *threadData);   //专门用来回收连接队列中的待回收线程
@@ -207,6 +214,11 @@ private:
 
     //在线用户相关
     std::atomic<int>                    m_onlineUserCount;              //当前在线用户数统计
+
+    //网络安全相关
+    int                                 m_floodAkEnable;                //是否开启flood攻击检测 1:开启 0：不开启
+    unsigned int                        m_floodTimeInterval;            //每次收到的数据包时间间隔是100毫秒
+    int                                 m_floodKickCount;               //连续多少次短间隔
     
 
     //消息队列

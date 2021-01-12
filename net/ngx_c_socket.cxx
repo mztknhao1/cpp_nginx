@@ -196,6 +196,8 @@ void CSocket::ReadConf()
     m_iWaitTime                 = p_config->GetIntDefault("Sock_MaxWaitTime", 0);
     m_iWaitTime                 = (m_iWaitTime > 5)?m_iWaitTime:5;                                                  //建议不低于5秒钟
     m_ifTimeOutKick             = p_config->GetIntDefault("Sock_TimeOutTick", 0);
+
+    m_floodAkEnable             = p_config->GetIntDefault("Sock_FloodAttackKickEnable", 0);
     
     return;
 }
@@ -668,5 +670,32 @@ void *CSocket::serverSendQueueThread(void *threadData){
 }
 
 
+/**
+ * @description: 测试是否是flood攻击 
+ * @param {*}
+ * @return {*}
+ */
+bool CSocket::TestFlood(lpngx_connection_t pConn){
+    struct timeval  sCurrTime;              //当前时间结构
+    uint64_t        iCurrTime;              //当前时间
+    bool            reco    = false;        
 
+    gettimeofday(&sCurrTime, NULL);         //取得当前时间
+    iCurrTime       =   (sCurrTime.tv_sec*1000 + sCurrTime.tv_usec/1000);       //毫秒
+    if((iCurrTime - pConn->FloodkickLastTime) < m_floodTimeInterval){
+        //两次收到包的时间小于设置的间隔
+        pConn->FloodAttackCount++;
+        pConn->FloodkickLastTime = iCurrTime;
+    }
+    else{
+        pConn->FloodAttackCount = 0;
+        pConn->FloodkickLastTime = iCurrTime;
+    }
+
+    if(pConn->FloodAttackCount >= m_floodKickCount){
+        reco = true;
+    }
+
+    return reco;
+}
 

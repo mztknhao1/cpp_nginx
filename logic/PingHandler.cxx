@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2021-01-12 08:50:48
- * @LastEditTime: 2021-01-12 09:33:49
+ * @LastEditTime: 2021-01-12 14:45:04
  * @LastEditors: Please set LastEditors
  * @Description: In User Settings Edit
  * @FilePath: /nginx/logic/PingHandler.cxx
@@ -13,7 +13,6 @@
 #include "ngx_logic_comm.h"
 #include "ngx_c_slogic.h"
 
-//TODO 还没写具体处理逻辑
 bool PingHandler::doHandler(lpngx_connection_t pConn, lpmsg_header_t pMsgHeader, char *pPkgBuf, unsigned short iBodyLength){
     
     if(iBodyLength != 0){

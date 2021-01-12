@@ -24,6 +24,8 @@
 //来数据时候的处理，当连接上有数据来的时候，本函数会被ngx_epoll_process_events()所调用  ,官方的类似函数为ngx_http_wait_request_handler();
 void CSocket::ngx_read_request_handler(lpngx_connection_t pConn)
 {  
+    bool isflood = false;
+    
     //收包，注意我们用的第二个和第三个参数，我们用的始终是这两个参数，因此我们必须保证 c->precvbuf指向正确的收包位置，保证c->irecvlen指向正确的收包宽度
     ssize_t reco = recvproc(pConn,pConn->precvbuf,pConn->irecvlen); 
     if(reco <= 0)  
@@ -67,7 +69,13 @@ void CSocket::ngx_read_request_handler(lpngx_connection_t pConn)
         if(reco == pConn->irecvlen)
         {
             //收到的宽度等于要收的宽度，包体也收完整了
-            ngx_read_request_handler_proc_plast(pConn);
+            
+            if(m_floodAkEnable==1){
+                if(TestFlood(pConn)){
+                    isflood = true;
+                }
+            }
+            ngx_read_request_handler_proc_plast(pConn, isflood);
         }
         else
 		{
@@ -83,7 +91,13 @@ void CSocket::ngx_read_request_handler(lpngx_connection_t pConn)
         if(pConn->irecvlen == reco)
         {
             //包体收完整了
-            ngx_read_request_handler_proc_plast(pConn);
+            if(m_floodAkEnable==1){
+                if(TestFlood(pConn)){
+                    isflood = true;
+                }
+            }
+
+            ngx_read_request_handler_proc_plast(pConn, isflood);
         }
         else
         {
@@ -159,12 +173,7 @@ ssize_t CSocket::recvproc(lpngx_connection_t c,char *buff,ssize_t buflen)  //ssi
         //ngx_log_stderr(0,"连接被客户端 非 正常关闭！");
 
         //这种真正的错误就要，直接关闭套接字，释放连接池中连接了
-        //ngx_close_connection(c);
-        if(close(c->fd) == -1)
-        {
-            ngx_log_error_core(NGX_LOG_ALERT,errno,"CSocket::recvproc()中close_2(%d)失败!",c->fd);  
-        }
-        inRecyConnectQueue(c);
+        zdClosesocketProc(c);        
         return -1;
     }
 
@@ -181,7 +190,8 @@ void CSocket::ngx_read_request_handler_proc_p1(lpngx_connection_t pConn)
     lpcomm_pkg_header_t pPkgHeader;
     pPkgHeader = (lpcomm_pkg_header_t)pConn->dataHeadInfo; //正好收到包头时，包头信息肯定是在dataHeadInfo里；
 
-    unsigned short e_pkgLen; 
+    unsigned short  e_pkgLen; 
+    bool            isflood =  false;
     e_pkgLen = ntohs(pPkgHeader->pkgLen);  //注意这里网络序转本机序，所有传输到网络上的2字节数据，都要用htons()转成网络序，所有从网络上收到的2字节数据，都要用ntohs()转成本机序
                                                 //ntohs/htons的目的就是保证不同操作系统数据之间收发的正确性，【不管客户端/服务器是什么操作系统，发送的数字是多少，收到的就是多少】
                                                 //不明白的同学，直接百度搜索"网络字节序" "主机字节序" "c++ 大端" "c++ 小端"
@@ -222,7 +232,12 @@ void CSocket::ngx_read_request_handler_proc_p1(lpngx_connection_t pConn)
         {
             //该报文只有包头无包体【我们允许一个包只有包头，没有包体】
             //这相当于收完整了，则直接入消息队列待后续业务逻辑线程去处理吧
-            ngx_read_request_handler_proc_plast(pConn);
+            if(m_floodAkEnable==1){
+                if(TestFlood(pConn)){
+                    isflood = true;
+                }
+            }
+            ngx_read_request_handler_proc_plast(pConn, isflood);
         } 
         else
         {
@@ -237,7 +252,7 @@ void CSocket::ngx_read_request_handler_proc_p1(lpngx_connection_t pConn)
 }
 
 //收到一个完整包后的处理【plast表示最后阶段】，放到一个函数中，方便调用
-void CSocket::ngx_read_request_handler_proc_plast(lpngx_connection_t pConn)
+void CSocket::ngx_read_request_handler_proc_plast(lpngx_connection_t pConn, bool isflood)
 {
     //把这段内存放到消息队列中来；
     //int irmqc = 0;  //消息队列当前信息数量
@@ -245,7 +260,15 @@ void CSocket::ngx_read_request_handler_proc_plast(lpngx_connection_t pConn)
     //激发线程池中的某个线程来处理业务逻辑
     //g_threadpool.Call(irmqc);
 
-    g_threadpool.inMsgRecvQueueAndSignal(pConn->precvMemPointer); //入消息队列并触发线程处理消息
+    if(isflood == false){
+        g_threadpool.inMsgRecvQueueAndSignal(pConn->precvMemPointer); //入消息队列并触发线程处理消息
+    }
+    else{
+        //对于有攻击倾向的人，直接释放内存，不往消息队列中加入
+        CMemory *pMemory = CMemory::GetInstance();
+        pMemory->FreeMemory(pConn->precvMemPointer);
+    }
+
     
     //c->ifnewrecvMem    = false;            //内存不再需要释放，因为你收完整了包，这个包被上边调用inMsgRecvQueue()移入消息队列，那么释放内存就属于业务逻辑去干，不需要回收连接到连接池中干了
     pConn->precvMemPointer = NULL;
