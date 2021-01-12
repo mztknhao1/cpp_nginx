@@ -38,11 +38,14 @@ CSocket::CSocket()
     //各种队列相关
     m_iSendMsgQueueCount = 0;                               //发消息队列大小
     m_total_recyconnection_n = 0;                           //待释放连接队列大小
+    m_timer_value_          = 0;                            //当前计时队列头部的时间值
+    m_iDiscardSendPkgCount  = 0;
+    m_cur_size_             = 0;
+
 
     //在线用户相关
     m_onlineUserCount        = 0;
     m_lastprintTime          = 0;     //上次打印统计信息的时间，先给0
-    m_iDiscardSendPkgCount   = 0;
 
     return;	
 }
@@ -625,6 +628,8 @@ void *CSocket::serverSendQueueThread(void *threadData){
                     pos++;
                     continue;
                 }
+
+                --pConn->iSendCount;
 
                 //走到这里，可以发送消息，一些必须的信息记录，要发送的东西也要从发送队列中干掉
                 pConn->psendMemPointer = pMsgBuf;
