@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2021-01-09 13:01:29
- * @LastEditTime: 2021-01-11 09:56:09
+ * @LastEditTime: 2021-01-12 17:28:13
  * @LastEditors: Please set LastEditors
  * @Description: In User Settings Edit
  * @FilePath: /mztkn_study_nginx/nginx/logic/RegisterHandler.cxx
@@ -19,10 +19,9 @@
 #include "ngx_global.h"
 
 
-//TODO 还没写具体处理逻辑
 bool RegisterHandler::doHandler(lpngx_connection_t pConn, lpmsg_header_t pMsgHeader, char *pPkgBody, unsigned short iBodyLength){
     
-    ngx_log_stderr(0, "开始执行RegisterHandler函数()");
+    // ngx_log_stderr(0, "开始执行RegisterHandler函数()");
     // return false;
     //（1）首先判断包体的合法性
     if(pPkgBody == nullptr){
@@ -39,7 +38,10 @@ bool RegisterHandler::doHandler(lpngx_connection_t pConn, lpmsg_header_t pMsgHea
 
     //(3) 取得了整个发送过来的数据
     _lpregister_t    pRecvInfo = (_lpregister_t)(pPkgBody);
-
+    pRecvInfo->iType = ntohl(pRecvInfo->iType);
+    pRecvInfo->username[sizeof(pRecvInfo->username)-1] = 0;
+    pRecvInfo->password[sizeof(pRecvInfo->password)-1] = 0;
+    
     //(4这里要根据业务逻辑进一步考虑合法性。。。
 
     //(5)给客户端返回数据，一般也是一个结构，这里以同样的register为例

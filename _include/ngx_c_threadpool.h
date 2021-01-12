@@ -1,3 +1,11 @@
+/*
+ * @Author: your name
+ * @Date: 2021-01-05 11:38:28
+ * @LastEditTime: 2021-01-12 17:47:26
+ * @LastEditors: your name
+ * @Description: In User Settings Edit
+ * @FilePath: /nginx/_include/ngx_c_threadpool.h
+ */
 #ifndef __NGX_THREADPOOL_H__
 #define __NGX_THREADPOOL_H__
 
@@ -19,6 +27,7 @@ public:
     void StopAll();                     //停止所有线程
     void inMsgRecvQueueAndSignal(char *buf);
     void Call();               //任务来了，调用一个线程池中的线程干活
+    int  getRecvMsgQueueCount(){return m_iRecvMsgQueueCount;}           //获取接收消息队列大小
 
 private:
     static void *ThreadFunc(void *threadData);  //新线程的回调函数

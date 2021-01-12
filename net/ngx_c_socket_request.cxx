@@ -372,7 +372,7 @@ void CSocket::ngx_write_request_handler(lpngx_connection_t pConn){
         )==-1){
             ngx_log_stderr(errno,"CSocekt::ngx_write_request_handler()中ngx_epoll_oper_event()失败。");
         }
-        ngx_log_stderr(0,"CSocekt::ngx_write_request_handler()中数据发送完毕，很好。"); //做个提示吧
+        // ngx_log_stderr(0,"CSocekt::ngx_write_request_handler()中数据发送完毕，很好。"); //做个提示吧
     }
 
     //数据发送完毕，让发送线程走下来，看看能不能发送新数据

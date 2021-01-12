@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2021-01-09 15:36:41
- * @LastEditTime: 2021-01-12 08:49:46
+ * @LastEditTime: 2021-01-12 17:27:48
  * @LastEditors: Please set LastEditors
  * @Description: 一些数据结构（和客户端协商好的）
  * @FilePath: /mztkn_study_nginx/nginx/_include/ngx_logic_comm.h
@@ -29,7 +29,7 @@ typedef struct _login_s      _login_t,    *_lplogin_t;
 struct _register_s{
     int         iType;          //类型
     char        username[56];   //用户名
-    char        passward[40];   //密码
+    char        password[40];   //密码
 };
 
 struct _login_s{

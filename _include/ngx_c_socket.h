@@ -112,6 +112,7 @@ public:
     virtual void procPingTimeOutChecking(lpmsg_header_t tmpmsg, time_t cur_time);
                                                                         //心跳包检测时间到，该去检测心跳包是否超时的事宜
     
+    void    printTDInfo();                                              //打印统计信息
 
     //epoll 相关 初始化、添加事件和处理事件
     int ngx_epoll_init();                                               //初始化epoll，利用epoll_create()创建epoll对象
@@ -228,6 +229,9 @@ private:
     std::vector<ThreadItem*>            m_threadVector;                 //?线程容器，和之前的接收请求的线程池不太一样
     pthread_mutex_t                     m_sendMessageQueueMutex;        //发消息队列互斥量
     sem_t                               m_semEventSendQueue;            //发送消息的信号量
+
+    time_t                              m_lastprintTime;                 //上次打印统计信息的时间(10秒钟打印一次)
+    int                                 m_iDiscardSendPkgCount;
 };
 
 #endif

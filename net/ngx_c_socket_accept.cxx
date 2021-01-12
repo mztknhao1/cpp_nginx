@@ -102,7 +102,7 @@ void CSocket::ngx_event_accept(lpngx_connection_t oldc)
 
         //走到这里的，表示accept4()/accept()成功了        
         if(m_onlineUserCount >= m_worker_connections){
-            ngx_log_stderr(0,"超出系统允许的最大连入用户数(最大允许连入数%d)，关闭连入请求(%d)。",m_worker_connections,s);  
+            // ngx_log_stderr(0,"超出系统允许的最大连入用户数(最大允许连入数%d)，关闭连入请求(%d)。",m_worker_connections,s);  
             close(s);
             return;
         }

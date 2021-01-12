@@ -142,7 +142,7 @@ void CLogicSocket::procPingTimeOutChecking(lpmsg_header_t tmpmsg, time_t cur_tim
         }
         else if((cur_time - pConn->lastPingTime)>(m_iWaitTime*3+10)){
             //超时踢得判断标准是每次检查隔3*m_iWaitTime+10
-            ngx_log_stderr(0, "时间到了，踢人了");
+            // ngx_log_stderr(0, "时间到了，踢人了");
             zdClosesocketProc(pConn);
         }
         //内存要释放
