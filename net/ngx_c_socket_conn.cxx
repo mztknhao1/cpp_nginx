@@ -63,7 +63,7 @@ void ngx_connection_s::PutOneToFree()
         psendMemPointer = NULL;
     }
 
-    iThrowsendCount = 0;                                        //设置不设置感觉都行         
+    iThrowsendCount = 0;                                        //这个值还是很重要得赋值，多线程导致         
 }
 
 //---------------------------------------------------------------
@@ -157,6 +157,18 @@ void CSocket::inRecyConnectQueue(lpngx_connection_t pConn)
     
     CLock lock(&m_recyconnqueueMutex); //针对连接回收列表的互斥量，因为线程ServerRecyConnectionThread()也有要用到这个回收列表；
 
+    bool iffind = false;
+    //如下判断，防止连接多次回收
+    for(auto& item:m_recyConnectionList){
+        if(item == pConn){
+            iffind = true;
+            break;
+        }
+    }
+    if(iffind){
+        return;
+    }
+
     pConn->inRecyTime = time(NULL);        //记录回收时间
     ++pConn->iCurrsequence;
     m_recyConnectionList.push_back(pConn); //等待ServerRecyConnectionThread线程自会处理 
@@ -202,7 +214,12 @@ lblRRTD:
                 //到释放的时间了: 
                 //......这将来可能还要做一些是否能释放的判断[在我们写完发送数据代码之后吧]，先预留位置
                 //....
-
+                if(p_Conn->iThrowsendCount > 0)
+                {
+                    //这确实不应该，打印个日志吧；
+                    ngx_log_stderr(0,"CSocekt::ServerRecyConnectionThread()中到释放时间却发现p_Conn.iThrowsendCount!=0，这个不该发生");
+                    //其他先暂时啥也不做，路程继续往下走，继续去释放吧。
+                }
 
                 //流程走到这里，表示可以释放，那我们就开始释放
                 --pSocketObj->m_total_recyconnection_n;        //待释放连接队列大小-1
