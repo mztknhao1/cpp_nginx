@@ -159,7 +159,7 @@ static void ngx_worker_process_init(int inum){
         ngx_log_stderr(0,"子进程初始化过程失败");
         exit(-2);
     }else{
-        ngx_log_stderr(0,"子进程初始化过程成功");
+        // ngx_log_stderr(0,"子进程初始化过程成功");
     }
 
     // 已经做好了三次握手的准备

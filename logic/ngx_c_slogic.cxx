@@ -106,3 +106,51 @@ void CLogicSocket::threadRecvProcFunc(char *pMsgBuf){
     return;
 }
 
+void CLogicSocket::SendNoBodyPkgToClient(lpmsg_header_t pMsgHeader, unsigned short iMsgCode){
+    CMemory *pMemory = CMemory::GetInstance();
+
+    char    *pSendBuf = (char *)pMemory->AllocMemory(MSG_HEADER_LEN+PKG_HEADER_LEN, false);
+    char    *pTmpBuf  = pSendBuf;
+
+    memcpy(pTmpBuf, pMsgHeader, MSG_HEADER_LEN);
+    pTmpBuf += MSG_HEADER_LEN;
+
+    lpcomm_pkg_header_t pPkgHeader = (lpcomm_pkg_header_t)(pTmpBuf);
+    pPkgHeader->msgCode = htons(iMsgCode);
+    pPkgHeader->pkgLen  = htons(PKG_HEADER_LEN);
+    pPkgHeader->crc32   = 0;
+    g_socket.msgSend(pSendBuf);
+
+    return;
+}
+
+/**
+ * @description: 心跳包检测时间到，该去检测心跳包是否超时 
+ * @param {*}
+ * @return {*}
+ */
+void CLogicSocket::procPingTimeOutChecking(lpmsg_header_t tmpmsg, time_t cur_time){
+    CMemory *pMemory = CMemory::GetInstance();
+
+    //检测连接是否断开，下面是没断开的情况
+    if(tmpmsg->iCurrsequence == tmpmsg->pConn->iCurrsequence){
+        lpngx_connection_t pConn = tmpmsg->pConn;
+
+        if(m_ifTimeOutKick == 1){
+            //时间一到，直接踢出去
+            zdClosesocketProc(pConn);
+        }
+        else if((cur_time - pConn->lastPingTime)>(m_iWaitTime*3+10)){
+            //超时踢得判断标准是每次检查隔3*m_iWaitTime+10
+            ngx_log_stderr(0, "时间到了，踢人了");
+            zdClosesocketProc(pConn);
+        }
+        //内存要释放
+        pMemory->FreeMemory(tmpmsg);    
+    }
+    else{
+        //此时连接断开了
+        pMemory->FreeMemory(tmpmsg);
+    }
+    return;
+}

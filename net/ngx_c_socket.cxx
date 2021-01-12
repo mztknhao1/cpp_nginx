@@ -71,6 +71,12 @@ bool CSocket::initializeSubproc()
     {
         ngx_log_stderr(0,"CSocket::Initialize()中pthread_mutex_init(&m_recyconnqueueMutex)失败.");
         return false;    
+    }
+
+    //时间队列相关互斥量初始化
+    if(pthread_mutex_init(&m_timequeueMutex, NULL) != 0){
+        ngx_log_stderr(0, "CSocket::Initialize()中pthread_mutex_init(&m_timequeueMutex)失败.");
+        return false;
     } 
    
     //初始化发消息相关信号量，信号量用于进程/线程 之间的同步，虽然 互斥量[pthread_mutex_lock]和 条件变量[pthread_cond_wait]都是线程之间的同步手段，但
@@ -93,6 +99,14 @@ bool CSocket::initializeSubproc()
         return false;
     }
 
+    //创建时间监视线程
+    ThreadItem *pTimeQueue = new ThreadItem(this);
+    m_threadVector.push_back(pTimeQueue);
+    err = pthread_create(&pTimeQueue->_Handle, NULL, serverTimerQueueMonitorThread, pTimeQueue);
+        if(err != 0)
+    {
+        return false;
+    }
 
     //创建连接回收线程
     ThreadItem *pRecyconn = new ThreadItem(this);
@@ -152,6 +166,7 @@ void CSocket::shutdownSubproc()
     pthread_mutex_destroy(&m_connectionMutex);          //连接相关互斥量释放
     pthread_mutex_destroy(&m_sendMessageQueueMutex);    //发消息互斥量释放    
     pthread_mutex_destroy(&m_recyconnqueueMutex);       //连接回收队列相关的互斥量释放
+    pthread_mutex_destroy(&m_timequeueMutex);           //时间队列互斥量
     sem_destroy(&m_semEventSendQueue);                  //发消息相关线程信号量释放
 }
 
@@ -173,9 +188,15 @@ void CSocket::clearMsgSendQueue()
 void CSocket::ReadConf()
 {
     CConfig *p_config = CConfig::GetInstance();
-    m_worker_connections      = p_config->GetIntDefault("worker_connections",m_worker_connections);              //epoll连接的最大项数
-    m_ListenPortCount         = p_config->GetIntDefault("ListenPortCount",m_ListenPortCount);                    //取得要监听的端口数量
-    m_RecyConnectionWaitTime  = p_config->GetIntDefault("Sock_RecyConnectionWaitTime",m_RecyConnectionWaitTime); //等待这么些秒后才回收连接
+    m_worker_connections        = p_config->GetIntDefault("worker_connections",m_worker_connections);              //epoll连接的最大项数
+    m_ListenPortCount           = p_config->GetIntDefault("ListenPortCount",m_ListenPortCount);                    //取得要监听的端口数量
+    m_RecyConnectionWaitTime    = p_config->GetIntDefault("Sock_RecyConnectionWaitTime",m_RecyConnectionWaitTime); //等待这么些秒后才回收连接
+    
+    m_ifkickTimeCount           = p_config->GetIntDefault("Sock_WaitTimeEnable", 0);
+    m_iWaitTime                 = p_config->GetIntDefault("Sock_MaxWaitTime", 0);
+    m_iWaitTime                 = (m_iWaitTime > 5)?m_iWaitTime:5;                                                  //建议不低于5秒钟
+    m_ifTimeOutKick             = p_config->GetIntDefault("Sock_TimeOutTick", 0);
+    
     return;
 }
 
@@ -282,6 +303,27 @@ void CSocket::ngx_close_listening_sockets()
         close(m_ListenSocketList[i]->fd);
         ngx_log_error_core(NGX_LOG_INFO,0,"关闭监听端口%d!",m_ListenSocketList[i]->port); //显示一些信息到日志中
     }//end for(int i = 0; i < m_ListenPortCount; i++)
+    return;
+}
+
+//主动关闭一个连接时的要做些善后的处理函数
+//这个函数是可能被多线程调用的，但是即便被多线程调用，也没关系，不影响本服务器程序的稳定性和正确运行性
+void CSocket::zdClosesocketProc(lpngx_connection_t p_Conn)
+{
+    if(m_ifkickTimeCount == 1)
+    {
+        DeleteFromTimerQueue(p_Conn);               //从把用户从时间队列中把连接干掉
+    }
+    if(p_Conn->fd != -1)
+    {   
+        close(p_Conn->fd);                          //这个socket关闭，关闭后epoll就会被从红黑树中删除，所以这之后无法收到任何epoll事件
+        p_Conn->fd = -1;
+    }
+
+    if(p_Conn->iThrowsendCount > 0)  
+        --p_Conn->iThrowsendCount;                  //归0
+
+    inRecyConnectQueue(p_Conn);                     //扔到待回收连接池中去
     return;
 }
 

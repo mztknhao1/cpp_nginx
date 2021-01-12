@@ -7,6 +7,7 @@
 #include <atomic>
 #include <semaphore.h>      //信号量
 #include <list>
+#include <map>
 #include "ngx_comm.h"
 
 // 一些专用的宏定义
@@ -18,6 +19,8 @@ typedef struct ngx_connection_s ngx_connection_t, *lpngx_connection_t;
 typedef struct msg_header_s     msg_header_t, *lpmsg_header_t;
 typedef class CSocket           CSocket;
 typedef void    (CSocket::*ngx_event_handler_pt)(lpngx_connection_t c);     //成员函数指针
+#define MSG_HEADER_LEN          sizeof(msg_header_t)
+#define PKG_HEADER_LEN          sizeof(comm_pkg_header_t)
 
 // 一些专用的结构定义在这里，暂时不放在ngx_global.h中
 struct ngx_listening_s  //和监听端口有关的结构
@@ -75,6 +78,9 @@ struct ngx_connection_s
     //和回收相关
     time_t                    inRecyTime;                                   //入到资源回收占里去的时间
 
+    //和心跳包有关
+    time_t                    lastPingTime;                                 //上一次Ping的时间
+
 	//--------------------------------------------------
 	lpngx_connection_t        next;                                         //这是个指针【等价于传统链表里的next成员：后继指针】，指向下一个本类型对象，用于把空闲的连接池对象串起来构成一个单向链表，方便取用
 };
@@ -98,6 +104,8 @@ public:
     virtual bool initializeSubproc();                                   //子进程才需要执行这个函数
     virtual void shutdownSubproc();                                     //子进程中才执行这个函数
     virtual void threadRecvProcFunc(char *pMsgBuf);                     //处理客户端请求，虚函数
+    virtual void procPingTimeOutChecking(lpmsg_header_t tmpmsg, time_t cur_time);
+                                                                        //心跳包检测时间到，该去检测心跳包是否超时的事宜
     
 
     //epoll 相关 初始化、添加事件和处理事件
@@ -105,8 +113,9 @@ public:
     int ngx_epoll_process_events(int timer);                            //epoll等待接收和处理事件
     int ngx_epoll_oper_event(int fd, uint32_t eventtype, uint32_t flag, int bcaction, lpngx_connection_t pConn);
                                                                         //epoll操作事件
-    //TODO数据发送相关
-    void msgSend(char *psendbuf);
+                                                                        
+    void msgSend(char *psendbuf);                                       //把待发送数据扔到队列中
+    void zdClosesocketProc(lpngx_connection_t pConn);                   //主动关闭一个连接而需要做一些善后处理
 
 private:
     void ReadConf();                                                    //读取各种配置项
@@ -126,7 +135,7 @@ private:
     void    ngx_read_request_handler_proc_plast(lpngx_connection_t c);  //收到一个完整包后的处理
     void    clearMsgSendQueue();                                        //清理接收消息队列
 
-    ssize_t sendproc(lpngx_connection_t c, char *buff, ssize_t size);   //TODO发送数据到客户端
+    ssize_t sendproc(lpngx_connection_t c, char *buff, ssize_t size);   //发送数据到客户端
 
     //获取对端信息相关
     size_t  ngx_sock_ntop(struct sockaddr *sa, int port, u_char *text, size_t len);
@@ -138,13 +147,25 @@ private:
     void                ngx_free_connection(lpngx_connection_t pConn);  //释放一个连接
     void                inRecyConnectQueue(lpngx_connection_t pConn);   //将要回收的连接放到队列中来
 
+    //和时间有关的函数
+    void                AddToTimerQueue(lpngx_connection_t pConn);      //设置踢出时钟
+    time_t              GetEarliestTime();                              //从multimap中取得最早的时间返回
+    lpmsg_header_t      RemoveFirstTimer();                             //从m_timeQueuemap中移出最早的时间，并把最早时间所在项的值所对应的指针返回
+    lpmsg_header_t      GetOverTimeTimer(time_t cur_time);              //根据给的当前时间，从m_timeQueuemap找到比这个时间更早的节点【1个】返回
+    void                DeleteFromTimerQueue(lpngx_connection_t pConn); //把指定用户tcp连接从timer表中扣除去
+    void                clearAllFromTimeQueue();                        //清理时间队列中所有内容
+
     //线程相关函数
     static  void*       serverRecyConnectionThread(void *threadData);   //专门用来回收连接队列中的待回收线程
     static  void*       serverSendQueueThread(void *threadData);
+    static  void*       serverTimerQueueMonitorThread(void *threadData);//时间队列监视线程，处理到期不发心跳包的客户端的线程
 
 protected:
     int                                 m_iLenPkgHeader;                //包头占用字节数
     int                                 m_iLenMsgHeader;                //消息头占用字节数
+
+    int                                 m_ifTimeOutKick;                //当时间到达Sock_MaxWaitTime指定时间，直接把客户端踢出去
+    int                                 m_iWaitTime;                    //多少秒检测一次是否心跳超时
 
 private:
     class  ThreadItem
@@ -176,6 +197,16 @@ private:
 
     std::vector<lpngx_listening_t>      m_ListenSocketList;             //监听套接字队列
     struct epoll_event                  m_events[NGX_MAX_EVENTS];
+
+    //和时间相关
+    int                                 m_ifkickTimeCount;              //是否开启踢人时钟 1：开启， 0：不开启
+    pthread_mutex_t                     m_timequeueMutex;               //和时间队列相关的互斥量
+    std::multimap<time_t, lpmsg_header_t> m_timerQueuemap;              //时间队列
+    size_t                              m_cur_size_;                    //时间队列尺寸
+    time_t                              m_timer_value_;                 //当前时间队列头部时间值
+
+    //在线用户相关
+    std::atomic<int>                    m_onlineUserCount;              //当前在线用户数统计
     
 
     //消息队列

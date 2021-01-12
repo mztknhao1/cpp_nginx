@@ -111,11 +111,12 @@ ssize_t CSocket::recvproc(lpngx_connection_t c,char *buff,ssize_t buflen)  //ssi
         //客户端关闭【应该是正常完成了4次挥手】，我这边就直接回收连接，关闭socket即可 
         //ngx_log_stderr(0,"连接被客户端正常关闭[4路挥手关闭]！");
         //ngx_close_connection(c);
-        if(close(c->fd) == -1)
-        {
-            ngx_log_error_core(NGX_LOG_ALERT,errno,"CSocket::recvproc()中close(%d)失败!",c->fd);  
-        }
-        inRecyConnectQueue(c);
+        // if(close(c->fd) == -1)
+        // {
+        //     ngx_log_error_core(NGX_LOG_ALERT,errno,"CSocket::recvproc()中close(%d)失败!",c->fd);  
+        // }
+        // inRecyConnectQueue(c);
+        zdClosesocketProc(c);
         return -1;
     }
     //客户端没断，走这里 

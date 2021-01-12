@@ -17,6 +17,7 @@
 #include "ngx_c_slogic.h"
 #include "HandlerFactory.h"
 #include "LoginHandler.h"
+#include "PingHandler.h"
 #include "RegisterHandler.h"
 
 static void freeresource();
@@ -79,6 +80,8 @@ int main(int argc, char *const *argv){
     //不过c++没有反射机制，注册起来还是一个问题。。。
     IRequestHandler* loginHandler = new LoginHandler();
     IRequestHandler* registerHandler = new RegisterHandler();
+    IRequestHandler* pingHandler = new PingHandler();
+    g_handlerFactory.setHandler(std::string("0"), pingHandler);
     g_handlerFactory.setHandler(std::string("5"), loginHandler);
     g_handlerFactory.setHandler(std::string("6"), registerHandler);
 

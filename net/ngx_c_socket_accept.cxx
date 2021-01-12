@@ -146,6 +146,15 @@ void CSocket::ngx_event_accept(lpngx_connection_t oldc)
             ngx_close_connection(newc);//关闭socket,这种可以立即回收这个连接，无需延迟，因为其上还没有数据收发，谈不到业务逻辑因此无需延迟；
             return; //直接返回
         }
+
+        //将用户加入时间队列
+        if(m_ifkickTimeCount == 1){
+            AddToTimerQueue(newc);
+        }
+
+        //连接用户数量+1
+        ++m_onlineUserCount;    
+
         break;  //一般就是循环一次就跳出去
     } while (1);   
 

@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2021-01-09 15:36:41
- * @LastEditTime: 2021-01-09 16:37:04
+ * @LastEditTime: 2021-01-12 08:49:46
  * @LastEditors: Please set LastEditors
  * @Description: 一些数据结构（和客户端协商好的）
  * @FilePath: /mztkn_study_nginx/nginx/_include/ngx_logic_comm.h
@@ -14,8 +14,9 @@
 //收发包宏定义-------------------------------------
 
 #define _CMD_START              0
-#define _CMD_REGISTER           _CMD_START + 5
-#define _CMD_LOGIN              _CMD_START + 6
+#define _CMD_PING               _CMD_START + 0      //ping命令【心跳包】
+#define _CMD_REGISTER           _CMD_START + 5      //注册
+#define _CMD_LOGIN              _CMD_START + 6      //登录
 
 
 //结构体定义----------------------------------------
