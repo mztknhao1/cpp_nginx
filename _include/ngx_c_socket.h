@@ -136,8 +136,8 @@ private:
     void ngx_close_connection(lpngx_connection_t c);
 
     ssize_t recvproc(lpngx_connection_t c, char *buff, ssize_t buflen); //接收从客户端来的数据
-    void    ngx_read_request_handler_proc_p1(lpngx_connection_t c);     //包头收完整后的处理，包处理阶段1
-    void    ngx_read_request_handler_proc_plast(lpngx_connection_t c, bool isflood);  //收到一个完整包后的处理
+    void    ngx_read_request_handler_proc_p1(lpngx_connection_t c, bool &isflood);     //包头收完整后的处理，包处理阶段1
+    void    ngx_read_request_handler_proc_plast(lpngx_connection_t c, bool& isflood);  //收到一个完整包后的处理
     void    clearMsgSendQueue();                                        //清理接收消息队列
 
     ssize_t sendproc(lpngx_connection_t c, char *buff, ssize_t size);   //发送数据到客户端

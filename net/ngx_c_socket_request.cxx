@@ -38,7 +38,7 @@ void CSocket::ngx_read_request_handler(lpngx_connection_t pConn)
     {        
         if(reco == m_iLenPkgHeader)//正好收到完整包头，这里拆解包头
         {   
-            ngx_read_request_handler_proc_p1(pConn); //那就调用专门针对包头处理完整的函数去处理把。
+            ngx_read_request_handler_proc_p1(pConn, isflood); //那就调用专门针对包头处理完整的函数去处理把。
         }
         else
 		{
@@ -53,7 +53,7 @@ void CSocket::ngx_read_request_handler(lpngx_connection_t pConn)
         if(pConn->irecvlen == reco) //要求收到的宽度和我实际收到的宽度相等
         {
             //包头收完整了
-            ngx_read_request_handler_proc_p1(pConn); //那就调用专门针对包头处理完整的函数去处理把。
+            ngx_read_request_handler_proc_p1(pConn, isflood); //那就调用专门针对包头处理完整的函数去处理把。
         }
         else
 		{
@@ -106,6 +106,11 @@ void CSocket::ngx_read_request_handler(lpngx_connection_t pConn)
 			pConn->irecvlen = pConn->irecvlen - reco;
         }
     }  //end if(c->curStat == _PKG_HD_INIT)
+
+    if(isflood == true){
+        ngx_log_stderr(errno,"发现客户端flood，干掉该客户端!");
+        zdClosesocketProc(pConn);
+    }
     return;
 }
 
@@ -183,7 +188,7 @@ ssize_t CSocket::recvproc(lpngx_connection_t c,char *buff,ssize_t buflen)  //ssi
 
 
 //包头收完整后的处理，我们称为包处理阶段1【p1】：写成函数，方便复用
-void CSocket::ngx_read_request_handler_proc_p1(lpngx_connection_t pConn)
+void CSocket::ngx_read_request_handler_proc_p1(lpngx_connection_t pConn, bool &isflood)
 {
     CMemory *p_memory = CMemory::GetInstance();		
 
@@ -191,7 +196,6 @@ void CSocket::ngx_read_request_handler_proc_p1(lpngx_connection_t pConn)
     pPkgHeader = (lpcomm_pkg_header_t)pConn->dataHeadInfo; //正好收到包头时，包头信息肯定是在dataHeadInfo里；
 
     unsigned short  e_pkgLen; 
-    bool            isflood =  false;
     e_pkgLen = ntohs(pPkgHeader->pkgLen);  //注意这里网络序转本机序，所有传输到网络上的2字节数据，都要用htons()转成网络序，所有从网络上收到的2字节数据，都要用ntohs()转成本机序
                                                 //ntohs/htons的目的就是保证不同操作系统数据之间收发的正确性，【不管客户端/服务器是什么操作系统，发送的数字是多少，收到的就是多少】
                                                 //不明白的同学，直接百度搜索"网络字节序" "主机字节序" "c++ 大端" "c++ 小端"
@@ -252,7 +256,7 @@ void CSocket::ngx_read_request_handler_proc_p1(lpngx_connection_t pConn)
 }
 
 //收到一个完整包后的处理【plast表示最后阶段】，放到一个函数中，方便调用
-void CSocket::ngx_read_request_handler_proc_plast(lpngx_connection_t pConn, bool isflood)
+void CSocket::ngx_read_request_handler_proc_plast(lpngx_connection_t pConn, bool& isflood)
 {
     //把这段内存放到消息队列中来；
     //int irmqc = 0;  //消息队列当前信息数量

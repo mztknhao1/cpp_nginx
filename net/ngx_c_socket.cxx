@@ -198,6 +198,9 @@ void CSocket::ReadConf()
     m_ifTimeOutKick             = p_config->GetIntDefault("Sock_TimeOutTick", 0);
 
     m_floodAkEnable             = p_config->GetIntDefault("Sock_FloodAttackKickEnable", 0);
+    m_floodTimeInterval         = p_config->GetIntDefault("Sock_FloodTimeInterval", 100);
+    m_floodKickCount            = p_config->GetIntDefault("Sock_FloodKickCounter",10);
+
     
     return;
 }
@@ -681,7 +684,7 @@ bool CSocket::TestFlood(lpngx_connection_t pConn){
     bool            reco    = false;        
 
     gettimeofday(&sCurrTime, NULL);         //取得当前时间
-    iCurrTime       =   (sCurrTime.tv_sec*1000 + sCurrTime.tv_usec/1000);       //毫秒
+    iCurrTime       =   (sCurrTime.tv_sec * 1000 + sCurrTime.tv_usec / 1000);  //毫秒
     if((iCurrTime - pConn->FloodkickLastTime) < m_floodTimeInterval){
         //两次收到包的时间小于设置的间隔
         pConn->FloodAttackCount++;
