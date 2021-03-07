@@ -29,7 +29,7 @@ void ngx_master_process_cycle(){
     // 下面这些信号在执行本函数期间不希望被收到，建立fork()子进程时学习这种写法，防止信号干扰
     sigaddset(&set, SIGCHLD);   //子进程状态改变
     sigaddset(&set, SIGALRM);   //定时器超时
-    sigaddset(&set, SIGIO);     // 异步I/O
+    sigaddset(&set, SIGIO);     //异步I/O
     sigaddset(&set, SIGINT);    //终端中断符
     sigaddset(&set, SIGHUP);    //连接断开
     sigaddset(&set, SIGUSR1);   //用户定义信号

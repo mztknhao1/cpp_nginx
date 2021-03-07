@@ -254,6 +254,13 @@ bool CSocket::ngx_open_listening_sockets()
             close(isock); //无需理会是否正常执行了                                                  
             return false;
         }
+
+        //为处理惊群问题使用reuseport
+
+        int reuseport = 1;
+        if(setsockopt(isock, SOL_SOCKET, SO_REUSEPORT, (const char *)&reuseport, sizeof(int)) == -1){
+            ngx_log_stderr(errno, "CSocket::Initialize()中setsockopt(SO_REUSEPORT失败",i);
+        }
         //设置该socket为非阻塞
         if(setnonblocking(isock) == false)
         {                

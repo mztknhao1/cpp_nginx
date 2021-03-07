@@ -1,7 +1,19 @@
+<!--
+ * @Author: your name
+ * @Date: 2020-12-06 10:07:28
+ * @LastEditTime: 2021-03-07 10:09:44
+ * @LastEditors: Please set LastEditors
+ * @Description: In User Settings Edit
+ * @FilePath: /mztkn_study_nginx/nginx/README.md
+-->
 # nginx源码通信架构/部分c++特性
 
 根据nginx源码一点一点补充
 
+
+# 程序示意图
+
+![示意图](./doc/master-worker的编码流程.png)
 
 ## 规划目录
 
@@ -37,4 +49,9 @@
 
     (e.2) ngx_process_cycle.cxx 创建子进程
 
+    (e.3) ngx_event.cxx 处理网络和定时器事件
+
 (f) signal目录：专门存放和信号处理有关的目录
+
+
+(g) doc目录，增加写这些程序用到的一些技术，心得体会等等
