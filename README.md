@@ -1,7 +1,7 @@
 <!--
  * @Author: your name
  * @Date: 2020-12-06 10:07:28
- * @LastEditTime: 2021-03-07 10:09:44
+ * @LastEditTime: 2021-03-11 09:19:35
  * @LastEditors: Please set LastEditors
  * @Description: In User Settings Edit
  * @FilePath: /mztkn_study_nginx/nginx/README.md
@@ -11,9 +11,16 @@
 根据nginx源码一点一点补充
 
 
-# 程序示意图
+## 程序示意图
 
 ![示意图](./doc/master-worker的编码流程.png)
+
+
+## 一些测试
+
+![内存泄漏测试](./doc/无内存泄漏.png)
+
+
 
 ## 规划目录
 
